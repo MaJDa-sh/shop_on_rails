@@ -8,7 +8,16 @@ class Api::ProductsController < ApplicationController
   end
 
   def create
-    @product = Product.create!(product_params)
+    @product = Product.new(product_params)
+  
+    if @product.save
+      if params[:photos]
+        @product.photos.attach(params[:photos])
+      end
+      render json: @product, status: :created
+    else
+      render json: @product.errors, status: :unprocessable_entity
+    end
   end
 
   def update
@@ -23,6 +32,6 @@ class Api::ProductsController < ApplicationController
   private
 
   def product_params
-    params.require(:product).permit(:id, :name, :price, :description)
+    params.require(:product).permit(:id, :name, :price, :description, photos: [])
   end
 end
