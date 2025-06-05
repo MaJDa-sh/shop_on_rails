@@ -12,10 +12,11 @@ class Api::ProductsController < ApplicationController
   end
 
   def update
-    @product = Product.update!(product_params)
+    @product = Product.find(params[:id])
+    @product.update!(product_params)
   end
 
-  def delete
+  def destroy
     @product = Product.delete(params[:id])
   end
 
