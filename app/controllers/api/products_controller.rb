@@ -8,30 +8,44 @@ class Api::ProductsController < ApplicationController
   end
 
   def create
-    @product = Product.new(product_params)
-  
-    if @product.save
-      if params[:photos]
-        @product.photos.attach(params[:photos])
-      end
-      render json: @product, status: :created
-    else
-      render json: @product.errors, status: :unprocessable_entity
-    end
+    @product = Product.create!(product_params)
   end
 
   def update
+    Rails.logger.debug "Product ID: #{params[:id]}"
     @product = Product.find(params[:id])
     @product.update!(product_params)
   end
 
   def destroy
-    @product = Product.delete(params[:id])
+    @product = Product.find(params[:id])
+    @product.destroy
   end
+
+  def create_photo 
+    @photo = ProductPhoto.create!(create_photo_params)
+    render json: {id: @photo.id, url: url_for(@photo.image)}
+  end
+
 
   private
 
+  def set_url_options
+    ActiveStorage::Current.url_options = {
+      host: request.base_url
+    }
+  end
+
   def product_params
-    params.require(:product).permit(:id, :name, :price, :description, photos: [])
+    params.require(:product).permit(
+      :id, :name, :price, :description,
+      product_photos_attributes: [:id, :_destroy],
+      product_photo_ids: []
+    )
+  end
+  def create_photo_params
+    params.require(:product_photo).permit(
+      :id, :image, :product_id
+    )
   end
 end
