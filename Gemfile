@@ -54,3 +54,6 @@ group :test do
   gem 'rspec-activemodel-mocks'
   gem 'rspec-its'
 end
+
+gem "rubocop", "~> 1.76"
+gem 'rubocop-rails'

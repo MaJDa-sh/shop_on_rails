@@ -362,6 +362,8 @@ DEPENDENCIES
   rspec-activemodel-mocks
   rspec-its
   rspec-rails
+  rubocop (~> 1.76)
+  rubocop-rails
   rubocop-rails-omakase
   shoulda-matchers
   solid_cable

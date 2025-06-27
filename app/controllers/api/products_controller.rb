@@ -1,4 +1,5 @@
 class Api::ProductsController < ApplicationController
+  include Rails.application.routes.url_helpers
   def index
     @products = Product.all
   end
@@ -12,7 +13,7 @@ class Api::ProductsController < ApplicationController
   end
 
   def update
-    Rails.logger.debug "Product ID: #{params[:id]}"
+    Rails.logger.info "Incoming photo IDs: #{params[:product][:product_photo_ids]}"
     @product = Product.find(params[:id])
     @product.update!(product_params)
   end
@@ -22,27 +23,21 @@ class Api::ProductsController < ApplicationController
     @product.destroy
   end
 
-  def create_photo 
+  def create_photo
     @photo = ProductPhoto.create!(create_photo_params)
     render json: {id: @photo.id, url: url_for(@photo.image)}
   end
 
-
   private
-
-  def set_url_options
-    ActiveStorage::Current.url_options = {
-      host: request.base_url
-    }
-  end
 
   def product_params
     params.require(:product).permit(
       :id, :name, :price, :description,
-      product_photos_attributes: [:id, :_destroy],
+      product_photos_attributes: %i[id _destroy],
       product_photo_ids: []
     )
   end
+
   def create_photo_params
     params.require(:product_photo).permit(
       :id, :image, :product_id
