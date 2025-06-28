@@ -13,7 +13,6 @@ class Api::ProductsController < ApplicationController
   end
 
   def update
-    Rails.logger.info "Incoming photo IDs: #{params[:product][:product_photo_ids]}"
     @product = Product.find(params[:id])
     @product.update!(product_params)
   end

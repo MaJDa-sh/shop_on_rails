@@ -8,7 +8,6 @@ class Product < ApplicationRecord
   private
 
   def assign_photos
-    Rails.logger.info "Assigning photos: #{product_photo_ids.inspect}"
     return if product_photo_ids.blank?
 
     ids = Array(product_photo_ids).reject(&:blank?)

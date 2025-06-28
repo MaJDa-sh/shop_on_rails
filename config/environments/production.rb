@@ -66,7 +66,13 @@ Rails.application.configure do
   #   authentication: :plain
   # }
 
-  routes.default_url_options[:host] = "localhost:3000"
+  Rails.application.routes.default_url_options[:protocol] =
+    ENV["DEFAULT_URL_PROTOCOL"] || "http"
+  Rails.application.routes.default_url_options[:host] =
+    ENV["DEFAULT_URL_HOST"] || "localhost"
+  Rails.application.routes.default_url_options[:port] =
+    ENV["DEFAULT_URL_PORT"] || "3000"
+  config.action_controller.asset_host = "http://localhost:3000"
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
   # the I18n.default_locale when a translation cannot be found).
   config.i18n.fallbacks = true
