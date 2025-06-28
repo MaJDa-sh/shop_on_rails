@@ -11,8 +11,6 @@ class Product < ApplicationRecord
     return if product_photo_ids.blank?
 
     ids = Array(product_photo_ids).reject(&:blank?)
-    return if ids.empty?
-
     ProductPhoto.where(id: ids).update_all(product_id: id)
   end
 end
