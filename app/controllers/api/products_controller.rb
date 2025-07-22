@@ -34,7 +34,6 @@ module Api
       # This endpoint returns the details of a specific product, including its name, price,
       # description, and associated photos.
       def show
-        # @product is set by set_product
         @status = :ok
       end
 
@@ -61,7 +60,7 @@ module Api
         end
       end
 
-      # PATCH/PUT /api/v1/products/:id
+      # PUT /api/v1/products/:id
       #
       # Updates an existing product with the provided attributes.
       #

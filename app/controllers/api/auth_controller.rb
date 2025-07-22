@@ -145,7 +145,6 @@ module Api
       def request_reset
         @user = User.find_by(mail: params[:mail])
         if @user
-          # Invalidate any old codes and create a new one with an expiration time
           @user.reset_code&.destroy
           reset_code = @user.create_reset_code(
             code: SecureRandom.hex(16),
@@ -153,7 +152,6 @@ module Api
           )
           UserMailer.send_reset_code(@user, reset_code.code).deliver_later
         end
-        # To prevent user enumeration, always return a generic success message.
         @message = 'If an account with that email exists, we have sent password reset instructions.'
         @status = :ok
       end
@@ -172,11 +170,10 @@ module Api
       def confirm_reset
         reset_code = ResetCode.find_by(code: params[:reset_code])
 
-        # Check if the code exists and is not expired
         if reset_code && reset_code.expires_at > Time.current
           @user = reset_code.user
           if @user.update(password: params[:password], password_confirmation: params[:password_confirmation])
-            reset_code.destroy # Invalidate the code after successful use
+            reset_code.destroy
             @message = 'Password has been reset successfully.'
             @status = :ok
           else

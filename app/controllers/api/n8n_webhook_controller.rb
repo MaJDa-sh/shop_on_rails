@@ -6,10 +6,7 @@
 # a structured way to handle API requests.
 module Api
   module V1
-    class DiagnosticsController < ApplicationController
-      def readiness_probe; end
-
-      def health_probe; end
+    class N8nWebhookController < ApplicationController
     end
   end
 end

@@ -9,6 +9,16 @@ module Api
     class OrdersController < ApplicationsController
       def create; end
       def cancel; end
+      def update; end
+
+      def show; end
+      def destroy; end
+      def index; end
+      def set_product; end
+
+      private
+
+      def order_params; end
     end
   end
 end

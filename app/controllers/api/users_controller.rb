@@ -17,7 +17,7 @@ module Api
       before_action :authenticate_user!, only: %i[show update destroy role actions me]
       before_action :authorize_admin!, only: %i[index role]
 
-      # POST /api/v1/users
+      # POST /api/v1/users/create
       #
       # Creates a new user account (registration).
       #
@@ -53,7 +53,7 @@ module Api
       def show
       end
 
-      # PATCH/PUT /api/v1/users/:id
+      # PATCH/PUT /api/v1/users/:id/update
       #
       # Updates an existing user's information.
       #
@@ -76,7 +76,13 @@ module Api
         end
       end
 
-      # DELETE /api/v1/users/:id
+      def update_location; end
+
+      def update_details; end
+
+      def update_entrepreneur_details; end
+
+      # DELETE /api/v1/users/:id/delete
       #
       # Deletes a user account.
       #
