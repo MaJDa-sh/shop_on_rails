@@ -57,3 +57,5 @@ end
 
 gem "rubocop", "~> 1.76"
 gem 'rubocop-rails'
+
+gem "testcontainers", "~> 0.2.0"
