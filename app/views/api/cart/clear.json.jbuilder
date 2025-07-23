@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 if @errors.present?
   json.errors @errors
 else

@@ -23,7 +23,7 @@ module Api
       #
       # @param [Integer] :page The page number for pagination (optional)
       def index
-        @products = Product.includes(:product_photos).page(params[:page]).per(25)
+        @products = Product.includes(:product_photos, :product_likes, :product_comments).page(params[:page]).per(25)
         @status = :ok
       end
 
@@ -160,7 +160,7 @@ module Api
       def set_product
         @product = Product.find(params[:id])
       rescue ActiveRecord::RecordNotFound
-        @errors = ['Product not found']
+        @errors = ['product not found']
         @status = :not_found
       end
 

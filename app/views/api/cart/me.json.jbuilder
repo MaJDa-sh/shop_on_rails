@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 json.cart do
   json.total_amount @total_amount
   json.items_count @items_count

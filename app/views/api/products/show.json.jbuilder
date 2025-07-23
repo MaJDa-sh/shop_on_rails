@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 if @product
   json.extract! @product, :id, :name, :price, :description, :created_at, :updated_at
   json.product_photos @product.product_photos do |photo|

@@ -55,13 +55,13 @@ module Api
       # and verified to access their profile.
       def show
         unless @user.accessible_by?(current_user)
-          @errors = ['You can only view your own profile']
+          @errors = ['you can only view your own profile']
           @status = :forbidden
           return
         end
         return if @user.active? && @user.verified?
 
-        @errors = ['User account is not active or verified']
+        @errors = ['user account is not active or verified']
         @status = :forbidden
       end
 
@@ -82,7 +82,7 @@ module Api
       # @option user_params [Hash] :user_detail_attributes Nested attributes for user details
       def update
         unless @user.accessible_by?(current_user)
-          @errors = ['You can only update your own profile']
+          @errors = ['you can only update your own profile']
           @status = :forbidden
           return
         end
@@ -110,12 +110,12 @@ module Api
       # @option location_params [Integer] :apartment_number The apartment number (optional, must be non-negative)
       def update_location
         unless @user.accessible_by?(current_user)
-          @errors = ['You can only update your own location']
+          @errors = ['you can only update your own location']
           @status = :forbidden
           return
         end
         unless @user.active? && @user.verified?
-          @errors = ['User account is not active or verified']
+          @errors = ['user account is not active or verified']
           @status = :forbidden
           return
         end
@@ -138,12 +138,12 @@ module Api
       # @option user_detail_params [String] :last_name The last name (optional)
       def update_details
         unless @user.accessible_by?(current_user)
-          @errors = ['You can only update your own details']
+          @errors = ['you can only update your own details']
           @status = :forbidden
           return
         end
         unless @user.active? && @user.verified?
-          @errors = ['User account is not active or verified']
+          @errors = ['user account is not active or verified']
           @status = :forbidden
           return
         end
@@ -178,12 +178,12 @@ module Api
       # @option entrepreneur_detail_params [String] :website_address The business website (optional)
       def update_entrepreneur_details
         unless @user.accessible_by?(current_user)
-          @errors = ['You can only update your own entrepreneur details']
+          @errors = ['you can only update your own entrepreneur details']
           @status = :forbidden
           return
         end
         unless @user.active? && @user.verified?
-          @errors = ['User account is not active or verified']
+          @errors = ['user account is not active or verified']
           @status = :forbidden
           return
         end
@@ -200,7 +200,7 @@ module Api
       # settings, activation codes). It is accessible only to the user themselves or an admin.
       def destroy
         unless @user.accessible_by?(current_user)
-          @errors = ['You can only delete your own account']
+          @errors = ['you can only delete your own account']
           @status = :forbidden
           return
         end
@@ -219,7 +219,7 @@ module Api
         if @user.active? && @user.verified?
           @status = :ok
         else
-          @errors = ['User account is not active or verified']
+          @errors = ['user account is not active or verified']
           @status = :forbidden
         end
       end
@@ -282,7 +282,7 @@ module Api
       # @param [Integer] :page The page number for pagination (optional)
       def actions
         unless @user.accessible_by?(current_user)
-          @errors = ['You can only view your own actions']
+          @errors = ['you can only view your own actions']
           @status = :forbidden
           return
         end
@@ -302,7 +302,7 @@ module Api
       def set_user
         @user = User.find(params[:id])
       rescue ActiveRecord::RecordNotFound
-        @errors = ['User not found']
+        @errors = ['user not found']
         @status = :not_found
       end
 

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 if @message
   json.message @message
 else

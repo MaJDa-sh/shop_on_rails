@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 if @token
   json.token @token
   json.user do

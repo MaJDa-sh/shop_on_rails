@@ -23,6 +23,52 @@ class Order < ApplicationRecord
   scope :completed, -> { where(status: :delivered) }
   scope :pending_payment, -> { where(payment_status: :unpaid) }
 
+  def update_with_params(params)
+    if update(params)
+      { status: :ok }
+    else
+      { errors: errors.full_messages, status: :unprocessable_entity }
+    end
+  end
+
+  def destroy_order
+    destroy
+    { status: :no_content }
+  end
+
+  def cancel_order
+    unless pending? || processing?
+      return { errors: ["Nie można anulować zamówienia w obecnym stanie: #{status}"], status: :unprocessable_entity }
+    end
+
+    if update(status: :cancelled)
+      { message: 'Zamówienie zostało pomyślnie anulowane', status: :ok }
+    else
+      { errors: errors.full_messages, status: :unprocessable_entity }
+    end
+  end
+
+  def self.create_from_cart_for(user)
+    cart_items_to_move = user.cart_items.includes(:product)
+    raise ArgumentError, 'Twój koszyk jest pusty' if cart_items_to_move.empty?
+
+    order = nil
+    transaction do
+      order = user.orders.create!(status: :pending, payment_status: :unpaid)
+      cart_items_to_move.update_all(order_id: order.id)
+      order.reload.save!
+    end
+    order
+  end
+
+  def self.for_user(user)
+    if user.admin?
+      includes(:user, :items).order(created_at: :desc)
+    else
+      user.orders.includes(:items).order(created_at: :desc)
+    end
+  end
+
   def add_product(product, quantity)
     item = items.find_or_initialize_by(product: product)
     item.quantity = (item.quantity || 0) + quantity
@@ -42,6 +88,14 @@ class Order < ApplicationRecord
 
   def mark_as_shipped!
     update!(status: :shipped)
+  end
+
+  def accessible_by?(user)
+    self.user == user || user.admin?
+  end
+
+  def manageable_by?(user)
+    user.admin?
   end
 
   private

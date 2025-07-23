@@ -19,6 +19,54 @@ class Payment < ApplicationRecord
 
   before_create :create_stripe_charge
 
+  def self.handle_stripe_event(event)
+    charge = event.data.object
+    case event.type
+    when 'charge.succeeded'
+      process_charge_succeeded(charge)
+    when 'charge.failed'
+      process_charge_failed(charge)
+    when 'charge.refunded'
+      process_charge_refunded(charge)
+    else
+      Rails.logger.warn "Unhandled Stripe event type: #{event.type}"
+    end
+  end
+
+  def self.process_charge_succeeded(charge)
+    payment = find_by(stripe_charge_id: charge.id)
+    return unless payment && !payment.completed?
+
+    transaction do
+      payment.mark_as_completed!
+      payment.order.mark_as_paid!
+    end
+    Rails.logger.info "Webhook: Stripe charge succeeded for Payment ##{payment.id}"
+  end
+
+  def self.process_charge_failed(charge)
+    payment = find_by(stripe_charge_id: charge.id)
+    return unless payment && !payment.failed?
+
+    failure_message = charge.failure_message || 'Charge failed for an unknown reason.'
+    transaction do
+      payment.mark_as_failed!(failure_message)
+      payment.order.update!(payment_status: :failed)
+    end
+    Rails.logger.info "Webhook: Stripe charge failed for Payment ##{payment.id}"
+  end
+
+  def self.process_charge_refunded(charge)
+    payment = find_by(stripe_charge_id: charge.id)
+    return unless payment && !payment.refunded?
+
+    transaction do
+      payment.update!(status: :refunded)
+      payment.order.update!(status: :refunded, payment_status: :refunded)
+    end
+    Rails.logger.info "Webhook: Stripe charge refunded for Payment ##{payment.id}"
+  end
+
   def mark_as_completed!
     update!(status: :completed)
   end
