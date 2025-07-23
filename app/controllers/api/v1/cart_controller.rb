@@ -42,7 +42,7 @@ module Api
       # @raise [ArgumentError] If the quantity is not greater than 0 (handled by User model).
       # @raise [ActiveRecord::RecordInvalid] If cart item validation fails (handled by User model).
       def add
-        product = Product.find_by(id: add_params[:product_id]) # Nadal szukamy produktu tutaj, aby przekazać obiekt
+        product = Product.find_by(id: add_params[:product_id])
         current_user.add_product_to_cart(product, add_params[:quantity])
         @status = :ok
       end
