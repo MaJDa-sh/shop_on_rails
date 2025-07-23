@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-# Namespace for API-related controllers and resources.
-#
-# This module encapsulates all API endpoints for the application, providing
-# a structured way to handle API requests.
 module Api
   module V1
     # Handles shopping cart operations for authenticated users via the API.
@@ -41,24 +37,14 @@ module Api
       #
       # @param [Integer] :product_id The ID of the product to add.
       # @param [Integer] :quantity The quantity of the product to add. Must be greater than 0.
-      # @return [JSON] A JSON object confirming the addition and providing updated cart summary.
+      # @return [HTTP 204 No Content] On successful addition.
       # @raise [ActiveRecord::RecordNotFound] If the product is not found (handled by User model).
       # @raise [ArgumentError] If the quantity is not greater than 0 (handled by User model).
       # @raise [ActiveRecord::RecordInvalid] If cart item validation fails (handled by User model).
       def add
         product = Product.find_by(id: add_params[:product_id]) # Nadal szukamy produktu tutaj, aby przekazać obiekt
-        result = current_user.add_product_to_cart(product, add_params[:quantity])
-        @message = result[:message]
-        @errors = result[:errors]
-        @status = result[:status]
-
-        if @status == :ok
-          @cart_items = current_user.cart_items.includes(:product)
-          @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
-          @items_count = @cart_items.sum(:quantity)
-        end
-
-        render :add, status: @status
+        current_user.add_product_to_cart(product, add_params[:quantity])
+        @status = :ok
       end
 
       # DELETE /api/v1/cart/revoke/:item_id
@@ -71,42 +57,23 @@ module Api
       # @param [Integer] :quantity_to_remove (Optional) The quantity to reduce. If not
       #                                     provided or if it's greater than/equal to
       #                                     current quantity, the item is fully removed.
-      # @return [JSON] A JSON object confirming the modification/removal and providing updated cart summary.
+      # @return [HTTP 204 No Content] On successful modification or removal.
       # @raise [ActiveRecord::RecordNotFound] If the cart item is not found in the user's cart (handled by User model).
       # @raise [ActiveRecord::RecordInvalid] If cart item validation fails during quantity reduction (handled by User model).
       def revoke
-        result = current_user.remove_product_from_cart(revoke_params[:item_id], revoke_params[:quantity_to_remove])
-        @message = result[:message]
-        @errors = result[:errors]
-        @status = result[:status]
-
-        if @status == :ok
-          @cart_items = current_user.cart_items.includes(:product)
-          @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
-          @items_count = @cart_items.sum(:quantity)
-        end
-
-        render :revoke, status: @status
+        current_user.remove_product_from_cart(revoke_params[:item_id], revoke_params[:quantity_to_remove])
+        @status = :ok
       end
 
       # DELETE /api/v1/cart/clear
       #
       # Clears all items from the authenticated user's shopping cart.
       #
-      # @return [JSON] A JSON object confirming the clearing of the cart and providing updated cart summary (zeroed).
+      # @return [HTTP 204 No Content] On successful clearing of the cart.
       # @raise [ActiveRecord::RecordInvalid] If clearing fails (e.g., due to database constraints - handled by User model).
       def clear
-        result = current_user.clear_user_cart
-        @message = result[:message]
-        @errors = result[:errors]
-        @status = result[:status]
-
-        if @status == :ok
-          @total_amount = 0.0
-          @items_count = 0
-        end
-
-        render :clear, status: @status
+        current_user.clear_user_cart
+        @status = :ok
       end
 
       private

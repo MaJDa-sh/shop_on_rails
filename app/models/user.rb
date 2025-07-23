@@ -258,6 +258,42 @@ class User < ApplicationRecord
     end
   end
 
+  def like_product(product)
+    raise ActiveRecord::RecordNotFound, 'Product not found' unless product
+    if ProductLike.exists?(user: self, product: product)
+      raise ActiveRecord::RecordInvalid, 'You have already liked this product'
+    end
+
+    ProductLike.create!(user: self, product: product)
+    true
+  end
+
+  def rate_product(product, rating, comment = nil)
+    raise ActiveRecord::RecordNotFound, 'Product not found' unless product
+    unless rating.present? && (1..5).include?(rating.to_i)
+      raise ArgumentError, 'Rating must be an integer between 1 and 5'
+    end
+
+    product_rate = ProductRate.find_or_initialize_by(user: self, product: product)
+    product_rate.rating = rating.to_i
+    product_rate.comment = comment
+
+    product_rate.save!
+    true
+  end
+
+  def add_comment_to_product(product, content, parent_id = nil)
+    raise ActiveRecord::RecordNotFound, 'Product not found' unless product
+    raise ArgumentError, 'Comment content cannot be empty' unless content.present?
+
+    parent_comment = Comment.find_by(id: parent_id) if parent_id.present?
+    raise ActiveRecord::RecordNotFound, 'Parent comment not found' if parent_id.present? && parent_comment.nil?
+
+    comment = Comment.new(user: self, product: product, content: content, parent: parent_comment)
+    comment.save!
+    comment
+  end
+
   def clear_user_cart
     cart_items.destroy_all!
   end
