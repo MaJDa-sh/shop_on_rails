@@ -107,7 +107,6 @@ module Api
         @message = result[:message]
         @errors = result[:errors]
         @status = result[:status]
-        render :like, status: @status
       end
 
       # POST /api/v1/products/:id/rate
@@ -128,7 +127,6 @@ module Api
         @message = result[:message]
         @errors = result[:errors]
         @status = result[:status]
-        render :rate, status: @status
       end
 
       # POST /api/v1/products/:id/comment
@@ -149,7 +147,6 @@ module Api
         @message = result[:message]
         @errors = result[:errors]
         @status = result[:status]
-        render :comment, status: @status
       end
 
       private
