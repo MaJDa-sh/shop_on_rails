@@ -29,6 +29,9 @@ module Api
 
         @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
         @items_count = @cart_items.sum(:quantity)
+        @status = :ok # Ustaw status dla Jbuildera
+        # Rails domyślnie renderuje app/views/api/v1/cart/me.json.jbuilder
+        # nie ma potrzeby jawnego wywoływania render :me
       end
 
       # POST /api/v1/cart/add
@@ -40,14 +43,24 @@ module Api
       #
       # @param [Integer] :product_id The ID of the product to add.
       # @param [Integer] :quantity The quantity of the product to add. Must be greater than 0.
-      # @return [HTTP 200 OK] On successful addition.
-      # @raise [ActiveRecord::RecordNotFound] If the product is not found.
+      # @return [JSON] A JSON object confirming the addition and providing updated cart summary.
+      # @raise [ActiveRecord::RecordNotFound] If the product is not found (handled by User model).
       # @raise [ArgumentError] If the quantity is not greater than 0 (handled by User model).
-      # @raise [ActiveRecord::RecordInvalid] If cart item validation fails.
+      # @raise [ActiveRecord::RecordInvalid] If cart item validation fails (handled by User model).
       def add
-        product = Product.find_by(id: add_params[:product_id])
-        current_user.add_product_to_cart(product, add_params[:quantity])
-        head :ok
+        product = Product.find_by(id: add_params[:product_id]) # Nadal szukamy produktu tutaj, aby przekazać obiekt
+        result = current_user.add_product_to_cart(product, add_params[:quantity])
+        @message = result[:message]
+        @errors = result[:errors]
+        @status = result[:status]
+
+        if @status == :ok
+          @cart_items = current_user.cart_items.includes(:product)
+          @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
+          @items_count = @cart_items.sum(:quantity)
+        end
+
+        render :add, status: @status
       end
 
       # DELETE /api/v1/cart/revoke/:item_id
@@ -60,23 +73,42 @@ module Api
       # @param [Integer] :quantity_to_remove (Optional) The quantity to reduce. If not
       #                                     provided or if it's greater than/equal to
       #                                     current quantity, the item is fully removed.
-      # @return [HTTP 200 OK] On successful modification or removal.
-      # @raise [ActiveRecord::RecordNotFound] If the cart item is not found in the user's cart.
-      # @raise [ActiveRecord::RecordInvalid] If cart item validation fails during quantity reduction.
+      # @return [JSON] A JSON object confirming the modification/removal and providing updated cart summary.
+      # @raise [ActiveRecord::RecordNotFound] If the cart item is not found in the user's cart (handled by User model).
+      # @raise [ActiveRecord::RecordInvalid] If cart item validation fails during quantity reduction (handled by User model).
       def revoke
-        current_user.remove_product_from_cart(revoke_params[:item_id], revoke_params[:quantity_to_remove])
-        head :ok
+        result = current_user.remove_product_from_cart(revoke_params[:item_id], revoke_params[:quantity_to_remove])
+        @message = result[:message]
+        @errors = result[:errors]
+        @status = result[:status]
+
+        if @status == :ok
+          @cart_items = current_user.cart_items.includes(:product)
+          @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
+          @items_count = @cart_items.sum(:quantity)
+        end
+
+        render :revoke, status: @status
       end
 
       # DELETE /api/v1/cart/clear
       #
       # Clears all items from the authenticated user's shopping cart.
       #
-      # @return [HTTP 200 OK] On successful clearing of the cart.
-      # @raise [ActiveRecord::RecordInvalid] If clearing fails (e.g., due to database constraints).
+      # @return [JSON] A JSON object confirming the clearing of the cart and providing updated cart summary (zeroed).
+      # @raise [ActiveRecord::RecordInvalid] If clearing fails (e.g., due to database constraints - handled by User model).
       def clear
-        current_user.clear_user_cart
-        head :ok
+        result = current_user.clear_user_cart
+        @message = result[:message]
+        @errors = result[:errors]
+        @status = result[:status]
+
+        if @status == :ok
+          @total_amount = 0.0
+          @items_count = 0
+        end
+
+        render :clear, status: @status
       end
 
       private
