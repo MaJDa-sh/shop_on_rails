@@ -1,3 +1,3 @@
 require 'rails_helper'
-describe Api::ProductsController do
+describe Api::V1::ProductsController do
 end
