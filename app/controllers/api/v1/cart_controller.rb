@@ -30,8 +30,6 @@ module Api
         @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
         @items_count = @cart_items.sum(:quantity)
         @status = :ok # Ustaw status dla Jbuildera
-        # Rails domyślnie renderuje app/views/api/v1/cart/me.json.jbuilder
-        # nie ma potrzeby jawnego wywoływania render :me
       end
 
       # POST /api/v1/cart/add

@@ -91,11 +91,66 @@ module Api
         @status = :no_content
       end
 
-      def like; end
+      # POST /api/v1/products/:id/like
+      #
+      # Allows the authenticated user to like a specific product.
+      #
+      # This endpoint creates a record of the user liking the product.
+      # A user can like a product only once.
+      #
+      # @param [Integer] :id The ID of the product to like.
+      # @return [JSON] A JSON object indicating success or failure.
+      # @raise [ActiveRecord::RecordNotFound] If the product is not found.
+      # @raise [ActiveRecord::RecordInvalid] If the like operation fails (e.g., user already liked).
+      def like
+        result = current_user.like_product(@product) # Delegacja do modelu User
+        @message = result[:message]
+        @errors = result[:errors]
+        @status = result[:status]
+        render :like, status: @status
+      end
 
-      def rate; end
+      # POST /api/v1/products/:id/rate
+      #
+      # Allows the authenticated user to rate a specific product.
+      #
+      # This endpoint creates or updates a user's rating for a product.
+      # A user can rate a product only once.
+      #
+      # @param [Integer] :id The ID of the product to rate.
+      # @param [Integer] :rating The rating value (1-5).
+      # @param [String] :comment (Optional) A comment accompanying the rating.
+      # @return [JSON] A JSON object indicating success or failure.
+      # @raise [ActiveRecord::RecordNotFound] If the product is not found.
+      # @raise [ActiveRecord::RecordInvalid] If the rating operation fails (e.g., invalid rating value, user already rated).
+      def rate
+        result = current_user.rate_product(@product, rate_params[:rating], rate_params[:comment]) # Delegacja do modelu User
+        @message = result[:message]
+        @errors = result[:errors]
+        @status = result[:status]
+        render :rate, status: @status
+      end
 
-      def comment; end
+      # POST /api/v1/products/:id/comment
+      #
+      # Allows the authenticated user to add a comment to a specific product.
+      #
+      # This endpoint creates a new comment associated with the product and the user.
+      # Comments can be top-level or replies to existing comments.
+      #
+      # @param [Integer] :id The ID of the product to comment on.
+      # @param [String] :content The content of the comment (required).
+      # @param [Integer] :parent_id (Optional) The ID of the parent comment, if this is a reply.
+      # @return [JSON] A JSON object indicating success or failure.
+      # @raise [ActiveRecord::RecordNotFound] If the product or parent comment is not found.
+      # @raise [ActiveRecord::RecordInvalid] If the comment creation fails (e.g., empty content).
+      def comment
+        result = current_user.add_comment_to_product(@product, comment_params[:content], comment_params[:parent_id]) # Delegacja do modelu User
+        @message = result[:message]
+        @errors = result[:errors]
+        @status = result[:status]
+        render :comment, status: @status
+      end
 
       private
 
