@@ -6,8 +6,8 @@ class Order < ApplicationRecord
   has_many :products, through: :items
   has_one :payment, dependent: :destroy
 
-  enum status: { pending: 0, processing: 1, shipped: 2, delivered: 3, cancelled: 4, refunded: 5 }
-  enum payment_status: { unpaid: 0, paid: 1, failed: 2, refunded: 3 }
+  enum :status, { pending: 0, processing: 1, shipped: 2, delivered: 3, cancelled: 4, refunded: 5 }, prefix: true
+  enum :payment_status, { unpaid: 0, paid: 1, failed: 2, refunded: 3 }, prefix: true
 
   validates :total_amount, presence: true, numericality: { greater_than_or_equal_to: 0 }
   validates :status, presence: true
@@ -38,11 +38,11 @@ class Order < ApplicationRecord
 
   def cancel_order
     unless pending? || processing?
-      return { errors: ["Nie można anulować zamówienia w obecnym stanie: #{status}"], status: :unprocessable_entity }
+      return { errors: ["failed to cancel order: #{status}"], status: :unprocessable_entity }
     end
 
     if update(status: :cancelled)
-      { message: 'Zamówienie zostało pomyślnie anulowane', status: :ok }
+      { message: 'order successfully updated', status: :ok }
     else
       { errors: errors.full_messages, status: :unprocessable_entity }
     end
@@ -50,7 +50,7 @@ class Order < ApplicationRecord
 
   def self.create_from_cart_for(user)
     cart_items_to_move = user.cart_items.includes(:product)
-    raise ArgumentError, 'Twój koszyk jest pusty' if cart_items_to_move.empty?
+    raise ArgumentError, 'your cart is empty' if cart_items_to_move.empty?
 
     order = nil
     transaction do

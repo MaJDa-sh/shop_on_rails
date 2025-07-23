@@ -3,7 +3,7 @@
 class Payment < ApplicationRecord
   belongs_to :order
 
-  enum status: { pending: 0, completed: 1, failed: 2, refunded: 3 }
+  enum :status, { pending: 0, completed: 1, failed: 2, refunded: 3 }
 
   attribute :stripe_token, :string
   attribute :error_message, :string

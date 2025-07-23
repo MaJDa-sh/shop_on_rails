@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# Namespace for API-related controllers and resources.
+#
+# This module encapsulates all API endpoints for the application, providing
+# a structured way to handle API requests.
 module Api
   module V1
     class StripePaymentsWebhookController < ApplicationController
@@ -16,18 +20,18 @@ module Api
             payload, sig_header, endpoint_secret
           )
         rescue JSON::ParserError
-          @errors = ['Invalid payload']
+          @errors = ['invalid payload']
           @status = :bad_request
           return
         rescue Stripe::SignatureVerificationError
-          @errors = ['Signature verification failed']
+          @errors = ['signature verification failed']
           @status = :bad_request
           return
         end
 
         Payment.handle_stripe_event(event)
 
-        @message = 'Webhook handled successfully'
+        @message = 'webhook handled successfully'
         @status = :ok
       end
     end
