@@ -103,7 +103,7 @@ module Api
       # @raise [ActiveRecord::RecordNotFound] If the product is not found.
       # @raise [ActiveRecord::RecordInvalid] If the like operation fails (e.g., user already liked).
       def like
-        result = current_user.like_product(@product) # Delegacja do modelu User
+        result = current_user.like_product(@product)
         @message = result[:message]
         @errors = result[:errors]
         @status = result[:status]
@@ -124,7 +124,7 @@ module Api
       # @raise [ActiveRecord::RecordNotFound] If the product is not found.
       # @raise [ActiveRecord::RecordInvalid] If the rating operation fails (e.g., invalid rating value, user already rated).
       def rate
-        result = current_user.rate_product(@product, rate_params[:rating], rate_params[:comment]) # Delegacja do modelu User
+        result = current_user.rate_product(@product, rate_params[:rating], rate_params[:comment])
         @message = result[:message]
         @errors = result[:errors]
         @status = result[:status]
@@ -145,7 +145,7 @@ module Api
       # @raise [ActiveRecord::RecordNotFound] If the product or parent comment is not found.
       # @raise [ActiveRecord::RecordInvalid] If the comment creation fails (e.g., empty content).
       def comment
-        result = current_user.add_comment_to_product(@product, comment_params[:content], comment_params[:parent_id]) # Delegacja do modelu User
+        result = current_user.add_comment_to_product(@product, comment_params[:content], comment_params[:parent_id])
         @message = result[:message]
         @errors = result[:errors]
         @status = result[:status]
