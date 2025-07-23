@@ -29,7 +29,7 @@ module Api
 
         @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
         @items_count = @cart_items.sum(:quantity)
-        @status = :ok # Ustaw status dla Jbuildera
+        @status = :ok
       end
 
       # POST /api/v1/cart/add
