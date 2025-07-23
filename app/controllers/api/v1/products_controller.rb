@@ -91,6 +91,12 @@ module Api
         @status = :no_content
       end
 
+      def like; end
+
+      def rate; end
+
+      def comment; end
+
       private
 
       # Sets the @product instance variable for actions that require a product ID.

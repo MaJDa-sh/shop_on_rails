@@ -60,3 +60,4 @@ gem 'rubocop-rails'
 
 gem 'cancancan'
 gem 'redis'
+gem 'stripe'

@@ -375,6 +375,7 @@ GEM
       net-ssh (>= 2.8.0)
       ostruct
     stringio (3.1.7)
+    stripe (15.3.0)
     testcontainers-core (0.2.0)
       docker-api (~> 2.2)
     testcontainers-postgres (0.2.0)
@@ -448,6 +449,7 @@ DEPENDENCIES
   solid_cable
   solid_cache
   solid_queue
+  stripe
   testcontainers-postgres
   testcontainers-redis
   thruster

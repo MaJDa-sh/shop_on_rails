@@ -224,7 +224,7 @@ module Api
         end
       end
 
-      # GET /api/v1/users
+      # GET /api/v1/users/index
       #
       # Retrieves a paginated list of users.
       #
@@ -238,7 +238,7 @@ module Api
         @status = :ok
       end
 
-      # PATCH /api/v1/users/:id/role
+      # PATCH /api/v1/users/:id/role/update
       #
       # Updates the role of a user.
       #
@@ -314,54 +314,6 @@ module Api
           :mail, :password, :password_confirmation, :phone,
           user_detail_attributes: %i[first_name last_name]
         )
-      end
-
-      # Ensures the user is authenticated before accessing protected endpoints.
-      #
-      # Verifies the JWT token in the Authorization header, checks if it's blacklisted,
-      # and sets the current_user. Renders unauthorized status if not authenticated.
-      #
-      # @return [nil] Renders unauthorized status if not authenticated
-      def authenticate_user!
-        token = request.headers['Authorization']&.split&.last
-        if token
-          begin
-            decoded_token = JWT.decode(token, Rails.application.credentials.secret_key_base, true,
-                                       { algorithm: 'HS256' })
-            user_id = decoded_token[0]['user_id']
-
-            if BlacklistedToken.exists?(token: token)
-              @errors = ['Token is blacklisted']
-              @status = :unauthorized
-              return
-            end
-
-            @current_user = User.find_by(id: user_id)
-            if @current_user
-              unless @current_user.active? && @current_user.verified?
-                @errors = ['User account is not active or verified']
-                @status = :forbidden
-              end
-            else
-              @errors = ['User not found']
-              @status = :unauthorized
-            end
-          rescue JWT::DecodeError => e
-            @errors = ["Invalid token: #{e.message}"]
-            @status = :unauthorized
-          end
-        else
-          @errors = ['Missing token']
-          @status = :unauthorized
-        end
-      end
-
-      # Ensures the user has admin privileges for restricted endpoints.
-      #
-      # @return [nil] Renders forbidden status if not an admin
-      def authorize_admin!
-        @errors = ['Forbidden']
-        @status = :forbidden unless current_user&.admin?
       end
     end
   end

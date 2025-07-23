@@ -1,11 +1,21 @@
+# frozen_string_literal: true
+
 class UserMailer < ApplicationMailer
-  def send_2fa_code(user, code)
+  def dial_2fa_code(user, code)
     @user = user
     @cide = code
-    mail(to: @user.mail, subject: '')
+    mail(to: @user.mail, subject: 'Your 2FA code')
   end
 
-  def send_activation_code(user, code); end
-  def send_verification_code(user, code); end
-  def send_reset_code(user, code); end
+  def dial_activation_code(user, code)
+    @user = user
+    @cide = code
+    mail(to: @user.mail, subject: 'Activation of yout account')
+  end
+
+  def dial_reset_code(user, code)
+    @user = user
+    @cide = code
+    mail(to: @user.mail, subject: 'Your reset code')
+  end
 end

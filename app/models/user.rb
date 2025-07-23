@@ -16,7 +16,11 @@ class User < ApplicationRecord
   has_one :second_factor_code, dependent: :destroy
   has_one :reset_code, dependent: :destroy
   has_many :user_actions, dependent: :destroy
+  has_many :orders, dependent: :destroy
   has_many :blacklisted_tokens, foreign_key: :owner_id, dependent: :destroy
+  has_many :comments, dependent: :destroy
+
+  has_many :cart_items, -> { where(order_id: nil) }, class_name: 'Item', dependent: :destroy
 
   accepts_nested_attributes_for :user_detail
 
@@ -55,7 +59,7 @@ class User < ApplicationRecord
       create_second_factor_code(code: code)
       code = second_factor_code.code
     end
-    UserMailer.send_2fa_code(self, code).deliver_later
+    UserMailer.dial_2fa_code(self, code).deliver_later
   end
 
   def verify_2fa_code(code)
@@ -118,13 +122,13 @@ class User < ApplicationRecord
       redis_key = "user:#{user.id}:reset_code"
       begin
         redis.set(redis_key, code, ex: 2.hours.to_i)
-        UserMailer.send_reset_code(user, code).deliver_later
+        UserMailer.dial_reset_code(user, code).deliver_later
       rescue Redis::CannotConnectError => e
         Rails.logger.error("Redis error: #{e.message}")
       end
       user.reset_code&.destroy
       user.create_reset_code(code: code, expires_at: 2.hours.from_now)
-      UserMailer.send_reset_code(user, code).deliver_later
+      UserMailer.dial_reset_code(user, code).deliver_later
     end
     { message: 'If an account with that email exists, we have sent password reset instructions.', status: :ok }
   end
@@ -228,6 +232,34 @@ class User < ApplicationRecord
     return { errors: ['User details not found'], status: :unprocessable_entity } unless user_detail
 
     user_detail.update_entrepreneur_details(entrepreneur_params)
+  end
+
+  def add_product_to_cart(product, quantity)
+    raise ActiveRecord::RecordNotFound, 'Product not found' unless product
+    raise ArgumentError, 'Quantity must be greater than 0' unless quantity.to_i > 0
+
+    cart_item = cart_items.find_or_initialize_by(product: product)
+    cart_item.quantity = (cart_item.quantity || 0) + quantity.to_i
+    cart_item.price_at_purchase = product.price
+    cart_item.save!
+  end
+
+  def remove_product_from_cart(item_id, quantity_to_remove = nil)
+    item = cart_items.find_by(id: item_id)
+    raise ActiveRecord::RecordNotFound, 'Item not found in cart' unless item
+
+    quantity_to_remove = quantity_to_remove.to_i if quantity_to_remove.present?
+
+    if quantity_to_remove.present? && quantity_to_remove > 0 && quantity_to_remove < item.quantity
+      item.quantity -= quantity_to_remove
+      item.save!
+    else
+      item.destroy!
+    end
+  end
+
+  def clear_user_cart
+    cart_items.destroy_all!
   end
 
   private

@@ -7,6 +7,8 @@
 module Api
   module V1
     class OrdersController < ApplicationController
+      before_action :set_order, only: %i[show update destroy]
+
       def create; end
       def cancel; end
       def update; end
@@ -16,9 +18,18 @@ module Api
       def index; end
       def set_product; end
 
+      def me; end
+
       private
 
       def order_params; end
+
+      def set_order
+        @order = Order.find(params[:id])
+      rescue ActiveRecord::RecordNotFound
+        @errors = ['User not found']
+        @status = :not_found
+      end
     end
   end
 end

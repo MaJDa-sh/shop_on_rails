@@ -2,6 +2,9 @@
 
 class Product < ApplicationRecord
   has_many :product_photos, dependent: :destroy
+  has_many :comments, dependent: :destroy
+  has_many :orders
+
   accepts_nested_attributes_for :product_photos, allow_destroy: true
 
   after_save :assign_photos
