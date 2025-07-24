@@ -1,4 +1,7 @@
+# config/initializers/prometheus.rb
+# frozen_string_literal: true
+
 require 'prometheus/client'
-require_relative '../app/models/services/instrumentor'
+require Rails.root.join('app', 'models', 'services', 'instrumentor')
 
 Services::Instrumentor.initialize_metrics

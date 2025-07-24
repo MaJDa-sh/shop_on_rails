@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 json.cache! ['product_photo_partial', product_photo.id, product_photo.updated_at] do
   json.id product_photo.id
   json.url product_photo.url

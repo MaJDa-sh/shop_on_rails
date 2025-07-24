@@ -37,6 +37,9 @@ group :development, :test do
 
   gem 'jwt'
   gem 'rspec-rails'
+  gem 'rswag'
+  gem 'rswag-api'
+  gem 'rswag-ui'
 end
 
 group :test do
