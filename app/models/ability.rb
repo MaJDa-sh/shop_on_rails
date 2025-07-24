@@ -6,6 +6,8 @@ class Ability
   def initialize(user)
     user ||= User.new
 
+    can :read, Product
+
     if user.persisted?
       can %i[like rate comment], Product
 
