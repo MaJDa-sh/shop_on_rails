@@ -1,7 +1,10 @@
 # frozen_string_literal: true
 
-if @errors
-  json.errors @errors
-else
-  json.message @message
+json.message @message
+json.comment do
+  json.partial! 'api/v1/products/product_comment', product_comment: @comment
+end
+json.product do
+  json.id @product.id
+  json.comments_count @product.product_comments.count
 end

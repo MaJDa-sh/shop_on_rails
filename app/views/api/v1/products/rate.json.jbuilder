@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-if @errors
-  json.errors @errors
-else
-  json.message @message
+json.message @message
+json.product do
+  json.id @product.id
+  json.average_rating @product.average_rating
+  json.ratings_count @product.product_ratings.count if @product.respond_to?(:product_ratings)
 end

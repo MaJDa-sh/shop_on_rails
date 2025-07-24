@@ -1,3 +1,3 @@
 # frozen_string_literal: true
 
-json.errors @errors if @errors
+json.message 'Order deleted successfully.'

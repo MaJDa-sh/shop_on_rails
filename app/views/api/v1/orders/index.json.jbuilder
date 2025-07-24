@@ -1,7 +1,16 @@
 # frozen_string_literal: true
 
-if @errors
-  json.errors @errors
-else
-  json.array! @orders, partial: 'api/v1/orders/order', as: :order
+json.cache! ['orders_index', current_user.id, @orders.map(&:id).sort, @orders.maximum(:updated_at) || Time.current,
+             params[:page]] do
+  json.orders @orders do |order|
+    json.partial! 'api/v1/orders/order', order: order
+  end
+
+  json.meta do
+    json.current_page @orders.current_page
+    json.next_page @orders.next_page
+    json.prev_page @orders.prev_page
+    json.total_pages @orders.total_pages
+    json.total_count @orders.total_count
+  end
 end

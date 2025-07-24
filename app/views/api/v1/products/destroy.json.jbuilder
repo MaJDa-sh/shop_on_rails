@@ -1,3 +1,3 @@
 # frozen_string_literal: true
 
-json.status @status
+json.message 'Product deleted successfully.'
