@@ -14,8 +14,7 @@ module Api
     # Responses are handled by Jbuilder templates.
     class PaymentsController < ApplicationController
       before_action :authenticate_user!
-      before_action :set_payment, only: %i[show]
-      before_action :authorize_admin!, only: %i[index]
+      load_and_authorize_resource
 
       # GET /api/v1/payments
       #
@@ -35,11 +34,6 @@ module Api
       # This endpoint returns the details of a specific payment. It is accessible only
       # to the user who owns the associated order or to an admin.
       def show
-        unless @payment.order.user == current_user
-          @errors = ['user is not authorized for this action']
-          @status = :forbidden
-          return
-        end
         @status = :ok
       end
 
@@ -98,16 +92,6 @@ module Api
       # @return [ActionController::Parameters] Permitted parameters for the payment.
       def payment_params
         params.require(:payment).permit(:order_id, :stripe_token)
-      end
-
-      # Sets the @payment instance variable from the ID in the request parameters.
-      #
-      # This is a before_action callback for endpoints that operate on a specific payment.
-      def set_payment
-        @payment = Payment.find(params[:id])
-      rescue ActiveRecord::RecordNotFound
-        @errors = ['payment not found']
-        @status = :not_found
       end
     end
   end

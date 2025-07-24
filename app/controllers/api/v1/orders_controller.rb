@@ -162,6 +162,7 @@ module Api
       rescue ActiveRecord::RecordNotFound
         @errors = ['order not found']
         @status = :not_found
+        render 'api/v1/shared/errors'
       end
     end
   end

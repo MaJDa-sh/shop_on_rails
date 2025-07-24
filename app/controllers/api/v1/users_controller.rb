@@ -15,8 +15,10 @@ module Api
     # It supports pagination, authentication, and authorization for secure access.
     # Responses are handled by Jbuilder templates.
     class UsersController < ApplicationController
-      before_action :set_user, only: %i[show update destroy role actions]
-      before_action :authenticate_user!, only: %i[show update destroy role actions me]
+      load_and_authorize_resource except: %i[create me logout]
+      before_action :authenticate_user!,
+                    only: %i[show update destroy role actions me logout update_location update_details
+                             update_entrepreneur_details]
       before_action :authorize_admin!, only: %i[index role]
 
       # POST /api/v1/users/create
@@ -54,15 +56,7 @@ module Api
       # is accessible only to the user themselves or an admin. The user must be active
       # and verified to access their profile.
       def show
-        unless @user.accessible_by?(current_user)
-          @errors = ['you can only view your own profile']
-          @status = :forbidden
-          return
-        end
-        return if @user.active? && @user.verified?
-
-        @errors = ['user account is not active or verified']
-        @status = :forbidden
+        @status = :ok
       end
 
       # PATCH/PUT /api/v1/users/:id/update
@@ -81,17 +75,12 @@ module Api
       # @option user_params [String] :phone The user's phone number
       # @option user_params [Hash] :user_detail_attributes Nested attributes for user details
       def update
-        unless @user.accessible_by?(current_user)
-          @errors = ['you can only update your own profile']
-          @status = :forbidden
-          return
-        end
         result = @user.update_with_params(user_params)
         @errors = result[:errors]
         @status = result[:status]
       end
 
-      # PATCH/PUT /api/v1/users/:id/update_location
+      # PUT /api/v1/users/:id/update_location
       #
       # Updates the user's location information.
       #
@@ -109,16 +98,6 @@ module Api
       # @option location_params [Integer] :building_number The building number (optional, must be positive)
       # @option location_params [Integer] :apartment_number The apartment number (optional, must be non-negative)
       def update_location
-        unless @user.accessible_by?(current_user)
-          @errors = ['you can only update your own location']
-          @status = :forbidden
-          return
-        end
-        unless @user.active? && @user.verified?
-          @errors = ['user account is not active or verified']
-          @status = :forbidden
-          return
-        end
         result = @user.update_user_location(location_params)
         @errors = result[:errors]
         @status = result[:status]
@@ -137,16 +116,6 @@ module Api
       # @option user_detail_params [String] :first_name The first name (optional)
       # @option user_detail_params [String] :last_name The last name (optional)
       def update_details
-        unless @user.accessible_by?(current_user)
-          @errors = ['you can only update your own details']
-          @status = :forbidden
-          return
-        end
-        unless @user.active? && @user.verified?
-          @errors = ['user account is not active or verified']
-          @status = :forbidden
-          return
-        end
         result = @user.update_user_details(user_detail_params)
         @errors = result[:errors]
         @status = result[:status]
@@ -199,11 +168,6 @@ module Api
       # This endpoint removes a user and their associated data (e.g., user details,
       # settings, activation codes). It is accessible only to the user themselves or an admin.
       def destroy
-        unless @user.accessible_by?(current_user)
-          @errors = ['you can only delete your own account']
-          @status = :forbidden
-          return
-        end
         result = @user.destroy_user
         @status = result[:status]
       end
@@ -216,12 +180,7 @@ module Api
       # role, and associated user details or settings. The user must be active and verified.
       def me
         @user = current_user
-        if @user.active? && @user.verified?
-          @status = :ok
-        else
-          @errors = ['user account is not active or verified']
-          @status = :forbidden
-        end
+        @status = :ok
       end
 
       # GET /api/v1/users/index
@@ -260,15 +219,10 @@ module Api
       # BlacklistedToken model, effectively logging them out.
       def logout
         token = request.headers['Authorization']&.split&.last
-        if token && current_user
-          result = current_user.blacklist_token(token)
-          @message = result[:message]
-          @errors = result[:errors]
-          @status = result[:status]
-        else
-          @errors = ['Invalid or missing token']
-          @status = :unprocessable_entity
-        end
+        result = current_user.blacklist_token(token)
+        @message = result[:message]
+        @errors = result[:errors]
+        @status = result[:status]
       end
 
       # GET /api/v1/users/:id/actions
@@ -281,30 +235,11 @@ module Api
       #
       # @param [Integer] :page The page number for pagination (optional)
       def actions
-        unless @user.accessible_by?(current_user)
-          @errors = ['you can only view your own actions']
-          @status = :forbidden
-          return
-        end
         @actions = @user.user_actions.page(params[:page]).per(25)
         @status = :ok
       end
 
       private
-
-      # Sets the @user instance variable for actions that require a user ID.
-      #
-      # This method is called before the show, update, destroy, role, and actions
-      # actions via before_action.
-      #
-      # @return [User] The user instance
-      # @raise [ActiveRecord::RecordNotFound] If the user with the given ID does not exist
-      def set_user
-        @user = User.find(params[:id])
-      rescue ActiveRecord::RecordNotFound
-        @errors = ['user not found']
-        @status = :not_found
-      end
 
       # Defines permitted parameters for creating or updating a user.
       #
@@ -313,6 +248,27 @@ module Api
         params.require(:user).permit(
           :mail, :password, :password_confirmation, :phone,
           user_detail_attributes: %i[first_name last_name]
+        )
+      end
+
+      def location_params
+        params.require(:location).permit(
+          :country, :province, :city, :postal_code, :street,
+          :building_number, :apartment_number
+        )
+      end
+
+      def user_detail_params
+        params.require(:user_detail).permit(:name, :first_name, :last_name)
+      end
+
+      def entrepreneur_detail_params
+        params.require(:entrepreneur_detail).permit(
+          :business_name, :nip, :krs, :description, :offer, :income, :costs,
+          :funding_capital, :industry, :business_phone_number, :business_mail,
+          :website_address,
+          management_council_members: {},
+          decision_makers: {}
         )
       end
     end

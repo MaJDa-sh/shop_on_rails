@@ -24,7 +24,7 @@ RSpec.describe Order, type: :model do
       it 'correctly calculates the total amount of the order' do
         result = Order.create_from_cart_for(user)
         order = result[:order]
-        expect(order.total_amount).to eq(200) # 2 * 100
+        expect(order.total_amount).to eq(200)
       end
     end
 

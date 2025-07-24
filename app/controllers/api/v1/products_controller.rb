@@ -12,7 +12,8 @@ module Api
     # products, with support for pagination and associated product photos.
     # Responses are handled by Jbuilder templates.
     class ProductsController < ApplicationController
-      before_action :set_product, only: %i[show update destroy]
+      before_action :authenticate_user!, except: %i[index show]
+      load_and_authorize_resource
 
       # GET /api/v1/products
       #
@@ -151,17 +152,12 @@ module Api
 
       private
 
-      # Sets the @product instance variable for actions that require a product ID.
-      #
-      # This method is called before the show, update, and destroy actions via before_action.
-      #
-      # @return [Product] The product instance
-      # @raise [ActiveRecord::RecordNotFound] If the product with the given ID does not exist
-      def set_product
-        @product = Product.find(params[:id])
-      rescue ActiveRecord::RecordNotFound
-        @errors = ['product not found']
-        @status = :not_found
+      def rate_params
+        params.require(:product_rating).permit(:rating, :comment)
+      end
+
+      def comment_params
+        params.require(:product_comment).permit(:content, :parent_id)
       end
 
       # Defines permitted parameters for creating or updating a product.

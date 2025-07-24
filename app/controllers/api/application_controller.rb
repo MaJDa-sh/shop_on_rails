@@ -35,51 +35,31 @@ module Api
       render json: { errors: ['An unexpected error occurred.'] }, status: :internal_server_error
     end
 
-    # Ensures the user has admin privileges for restricted endpoints.
-    #
-    # @return [nil] Renders forbidden status if not an admin
-    # @raise [Api::Forbidden] If the current user does not have admin privileges.
+    def current_ability
+      @current_ability ||= Ability.new(current_user)
+    end
+
     def authorize_admin!
       raise Api::Forbidden, 'Forbidden' unless current_user&.admin?
     end
 
-    # Helper method to retrieve the current authenticated user.
-    #
-    # This method should be implemented to fetch the user based on authentication
-    # credentials (e.g., from a JWT token).
-    #
-    # @return [User, nil] The authenticated User object, or nil if not authenticated.
     def current_user
-      @current_user ||= decoded_jwt_token && User.find_by(id: decoded_jwt_token['user_id'])
+      @current_user ||= User.find_by(id: decoded_jwt_token[:user_id]) if decoded_jwt_token
     end
 
-    # Ensures the user is authenticated before accessing protected endpoints.
-    #
-    # Verifies the JWT token in the Authorization header, checks if it's blacklisted,
-    # and sets the current_user. Raises an exception if not authenticated.
-    #
-    # @return [nil]
-    # @raise [Api::Unauthorized] If authentication fails (missing/invalid token, blacklisted, user not found).
-    # @raise [Api::Forbidden] If user account is not active or verified.
     def authenticate_user!
       token = request.headers['Authorization']&.split&.last
       raise Api::Unauthorized, 'Missing token' unless token
 
-      begin
-        decoded_token = JWT.decode(token, Rails.application.credentials.secret_key_base, true,
-                                   { algorithm: 'HS256' })
-        @decoded_jwt_token = decoded_token[0]
+      @decoded_jwt_token = Services::AuthService.decode(token)
+      raise Api::Unauthorized, 'Invalid or expired token' unless @decoded_jwt_token
 
-        raise Api::Unauthorized, 'Token is blacklisted' if BlacklistedToken.exists?(token: token)
+      raise Api::Unauthorized, 'User not found' unless current_user
 
-        raise Api::Unauthorized, 'User not found' unless current_user
+      return if current_user.active? && current_user.verified?
 
-        unless current_user.active? && current_user.verified?
-          raise Api::Forbidden, 'User account is not active or verified'
-        end
-      rescue JWT::DecodeError => e
-        raise Api::Unauthorized, "Invalid token: #{e.message}"
-      end
+      raise Api::Forbidden,
+            'User account is not active or verified'
     end
 
     protected

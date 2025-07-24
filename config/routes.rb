@@ -1,21 +1,63 @@
+# frozen_string_literal: true
+
 Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
-      scope :auth do
-        post 'login', to: 'auth#login'
-        post 'activate', to: 'auth#activate'
-        post 'verify', to: 'auth#verify'
+      scope :auth, controller: :auth do
+        post 'login'
+        post 'activate'
+        post 'verify'
       end
 
-      scope :users do
+      post 'stripe_payments_webhook/handle', to: 'stripe_payments_webhook#handle'
+
+      resources :users, only: %i[create index show update destroy] do
+        collection do
+          get 'me'
+          post 'logout'
+        end
+
+        member do
+          get 'actions'
+          patch 'role/update', to: 'users#role'
+          patch 'update_location'
+          patch 'update_details'
+          patch 'update_entrepreneur_details'
+        end
       end
 
-      scope :product do
+      resources :products, only: %i[index create show update destroy] do
+        member do
+          post 'like'
+          post 'rate'
+          post 'comment'
+          post 'create_photo'
+        end
       end
-    end
-    resources :products do
-      collection do
-        post :create_photo
+
+      resources :payments, only: %i[index create show]
+
+      resources :orders, only: %i[index create show update destroy] do
+        collection do
+          get 'me'
+        end
+        member do
+          post 'cancel'
+        end
+      end
+
+      resource :cart, controller: 'cart', only: [:show] do
+        member do
+          post 'add/:product_id', to: 'cart#add', as: 'add_to'
+          delete 'revoke/:item_id', to: 'cart#revoke', as: 'revoke_from'
+          delete 'clear'
+        end
+      end
+
+      scope :diagnostics, controller: :diagnostics do
+        get 'readiness', to: 'diagnostics#readiness'
+        get 'health', to: 'diagnostics#health'
+        get 'metrics', to: 'diagnostics#metrics'
       end
     end
   end

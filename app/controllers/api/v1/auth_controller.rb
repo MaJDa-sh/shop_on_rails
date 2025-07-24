@@ -50,7 +50,7 @@ module Api
           @errors = result[:errors]
           @status = result[:status]
         else
-          @errors = ['User not found']
+          @errors = ['user not found']
           @status = :unauthorized
         end
       end

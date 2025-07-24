@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-if @product
-  json.extract! @product, :id, :name, :price, :description, :created_at, :updated_at
-  json.product_photos @product.product_photos do |photo|
+json.cache! @product do
+  response.status = @status || :ok
+
+  json.extract! @product, :id, :name, :price, :description
+
+  json.photos @product.product_photos do |photo|
     json.id photo.id
-    json.url rails_blob_url(photo.image) if photo.image.attached?
+    json.image_url photo.image_url
   end
-else
-  json.errors @errors
 end
-json.status @status

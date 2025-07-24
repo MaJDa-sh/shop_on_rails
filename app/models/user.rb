@@ -59,7 +59,11 @@ class User < ApplicationRecord
       create_second_factor_code(code: code)
       code = second_factor_code.code
     end
-    UserMailer.dial_2fa_code(self, code).deliver_later
+    if phone.present?
+      Services::SMSService.dial_2fa_code(self, code)
+    else
+      Mailers::UserMailer.dial_2fa_code(self, code).deliver_later
+    end
   end
 
   def verify_2fa_code(code)
@@ -83,16 +87,7 @@ class User < ApplicationRecord
   end
 
   def generate_jwt
-    payload = { user_id: id, exp: 24.hours.from_now.to_i }
-    token = JWT.encode(payload, Rails.application.credentials.secret_key_base, 'HS256')
-    redis_key = "user:#{id}:jwt:#{token}"
-    begin
-      self.class.redis.set(redis_key, 'active',
-                           ex: 24.hours.to_i)
-    rescue StandardError
-      Rails.logger.error('Redis error: Failed to cache JWT')
-    end
-    token
+    Services::AuthService.encode({ user_id: id })
   end
 
   def activate_with_code(activation_code)
@@ -122,13 +117,13 @@ class User < ApplicationRecord
       redis_key = "user:#{user.id}:reset_code"
       begin
         redis.set(redis_key, code, ex: 2.hours.to_i)
-        UserMailer.dial_reset_code(user, code).deliver_later
+        Mailers::UserMailer.dial_reset_code(user, code).deliver_later
       rescue Redis::CannotConnectError => e
         Rails.logger.error("Redis error: #{e.message}")
       end
       user.reset_code&.destroy
       user.create_reset_code(code: code, expires_at: 2.hours.from_now)
-      UserMailer.dial_reset_code(user, code).deliver_later
+      Mailers::UserMailer.dial_reset_code(user, code).deliver_later
     end
     { message: 'If an account with that email exists, we have sent password reset instructions.', status: :ok }
   end
@@ -172,17 +167,11 @@ class User < ApplicationRecord
   end
 
   def blacklist_token(token)
-    redis_key = "user:#{id}:jwt:#{token}"
-    begin
-      self.class.redis.set(redis_key, 'blacklisted', ex: 24.hours.to_i)
-    rescue Redis::CannotConnectError => e
-      Rails.logger.error("Redis error: #{e.message}")
-      blacklisted_tokens.create(token: token)
+    if Services::AuthService.blacklist!(token)
+      { message: 'Logged out', status: :ok }
+    else
+      { errors: ['Failed to blacklist token'], status: :unprocessable_entity }
     end
-    blacklisted_tokens.create(token: token)
-    { message: 'Logged out', status: :ok }
-  rescue StandardError
-    { errors: ['Failed to blacklist token'], status: :unprocessable_entity }
   end
 
   def self.token_blacklisted?(token)

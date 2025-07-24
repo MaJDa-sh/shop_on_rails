@@ -13,6 +13,7 @@ module Api
     # by `Item` records directly associated with the user, not yet part of an `Order`.
     class CartController < ApplicationController
       before_action :authenticate_user!
+      authorize_resource class: false
 
       # GET /api/v1/users/cart/me
       #
@@ -46,7 +47,7 @@ module Api
       # @raise [ArgumentError] If the quantity is not greater than 0 (handled by User model).
       # @raise [ActiveRecord::RecordInvalid] If cart item validation fails (handled by User model).
       def add
-        product = Product.find(:id)
+        product = Product.find(params[:id])
         current_user.add_product_to_cart(product, add_params[:quantity])
         @status = :ok
       end
@@ -61,7 +62,7 @@ module Api
       # @param [Integer] :quantity_to_remove (Optional) The quantity to reduce. If not
       #                                     provided or if it's greater than/equal to
       #                                     current quantity, the item is fully removed.
-      # @return [HTTP 204 No Content] On successful modification or removal.
+      # @return [HTTP 200 OK] On successful modification or removal.
       # @raise [ActiveRecord::RecordNotFound] If the cart item is not found in the user's cart (handled by User model).
       # @raise [ActiveRecord::RecordInvalid] If cart item validation fails during quantity reduction (handled by User model).
       def revoke

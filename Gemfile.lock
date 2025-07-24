@@ -156,6 +156,8 @@ GEM
       zeitwerk (>= 2.6.18, < 3.0)
     language_server-protocol (3.17.0.5)
     lint_roller (1.1.0)
+    load_and_authorize_resource (0.4.1)
+      rails (>= 4.0)
     logger (1.7.0)
     loofah (2.24.1)
       crass (~> 1.0.2)
@@ -212,6 +214,8 @@ GEM
       prettyprint
     prettyprint (0.2.0)
     prism (1.4.0)
+    prometheus-client (4.2.5)
+      base64
     psych (5.2.6)
       date
       stringio
@@ -389,6 +393,10 @@ GEM
     thruster (0.1.14-x86_64-darwin)
     thruster (0.1.14-x86_64-linux)
     timeout (0.4.3)
+    twilio-ruby (3.11.6)
+      builder (>= 2.1.2)
+      jwt (>= 0.1.2)
+      multi_json (>= 1.3.0)
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
     unicode-display_width (3.1.4)
@@ -429,7 +437,9 @@ DEPENDENCIES
   jbuilder
   jwt
   kamal
+  load_and_authorize_resource
   pg (~> 1.1)
+  prometheus-client
   puma (>= 5.0)
   rack-cors
   rails (~> 8.0.2)
@@ -453,6 +463,7 @@ DEPENDENCIES
   testcontainers-postgres
   testcontainers-redis
   thruster
+  twilio-ruby
   tzinfo-data
 
 BUNDLED WITH

@@ -20,7 +20,7 @@ module Api
       # processing requests. It returns a success status if the application is ready,
       # or a failure status with error details if not.
       def readiness_probe
-        result = Diagnostics.readiness_probe
+        result = Services::DiagnosticsService.readiness_probe
         @status = result[:status]
         @message = result[:message]
         @errors = result[:errors]
@@ -34,11 +34,17 @@ module Api
       # It returns a success status if all checks pass, or a failure status with error
       # details and dependency status if any check fails.
       def health_probe
-        result = Diagnostics.health_probe
+        result = Services::DiagnosticsService.health_probe
         @status = result[:status]
         @message = result[:message]
         @errors = result[:errors]
         @details = result[:details]
+      end
+
+      def metrics
+        exporter = Prometheus::Client::Formats::Text.new
+        render plain: exporter.export(Services::PrometheusInstrumentor.registry),
+               content_type: 'text/plain; version=0.0.4'
       end
     end
   end
