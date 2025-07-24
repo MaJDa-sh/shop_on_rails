@@ -5,8 +5,11 @@ Rails.application.routes.draw do
     namespace :v1 do
       scope :auth, controller: :auth do
         post 'login'
-        post 'activate'
-        post 'verify'
+        post 'verify_2fa'
+        patch 'activate'
+        patch 'verify'
+        post 'password/reset', to: 'auth#request_reset'
+        patch 'password/reset', to: 'auth#confirm_reset'
       end
 
       post 'stripe_payments_webhook/handle', to: 'stripe_payments_webhook#handle'
