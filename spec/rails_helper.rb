@@ -13,7 +13,11 @@ RSpec.configure do |config|
   config.use_transactional_fixtures = true
   config.filter_rails_from_backtrace!
 
-  postgresql_container = Testcontainers::PostgresContainer.new('postgres:15-alpine', database: 'custom_db')
+  postgresql_container = Testcontainers::PostgresContainer.new('postgres:15-alpine')
+                                                          .with_env('POSTGRES_DB', 'test')
+                                                          .with_env('POSTGRES_PASSWORD', 'postgres')
+                                                          .with_env('POSTGRES_USER', 'postgres')
+                                                          .with_database('shop_on_rails_test')
   redis_container = Testcontainers::RedisContainer.new('redis:6.0-alpine')
 
   config.before(:suite) do
