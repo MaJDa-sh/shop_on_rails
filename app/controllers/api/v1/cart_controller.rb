@@ -49,6 +49,10 @@ module Api
       def add
         product = Product.find(params[:id])
         current_user.add_product_to_cart(product, add_params[:quantity])
+        @cart_items = current_user.cart_items.includes(:product)
+        @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
+        @items_count = @cart_items.sum(:quantity)
+        @message = 'Product added to cart successfully.'
         @status = :ok
       end
 
@@ -67,6 +71,10 @@ module Api
       # @raise [ActiveRecord::RecordInvalid] If cart item validation fails during quantity reduction (handled by User model).
       def revoke
         current_user.remove_product_from_cart(params[:id], revoke_params[:quantity_to_remove])
+        @cart_items = current_user.cart_items.includes(:product)
+        @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
+        @items_count = @cart_items.sum(:quantity)
+        @message = 'Product removed from cart.'
         @status = :ok
       end
 
@@ -78,6 +86,10 @@ module Api
       # @raise [ActiveRecord::RecordInvalid] If clearing fails (e.g., due to database constraints - handled by User model).
       def clear
         current_user.clear_user_cart
+        @cart_items = current_user.cart_items.includes(:product)
+        @total_amount = 0
+        @items_count = 0
+        @message = 'Cart cleared successfully.'
         @status = :ok
       end
 
