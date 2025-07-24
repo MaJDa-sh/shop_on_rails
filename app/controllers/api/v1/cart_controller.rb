@@ -1,53 +1,49 @@
 # frozen_string_literal: true
 
-# Namespace for API-related controllers and resources.
-#
-# This module encapsulates all API endpoints for the application, providing
-# a structured way to handle API requests.
+# Namespace for API resources and controllers.
 module Api
+  # Namespace for API version v1.
   module V1
-    # Handles shopping cart operations for authenticated users via the API.
+    # Handles shopping cart operations for the authenticated user.
     #
-    # This controller provides endpoints for viewing, adding, removing, and
-    # clearing items in the user's shopping cart. The cart is represented
-    # by `Item` records directly associated with the user, not yet part of an `Order`.
+    # Provides endpoints for viewing, adding items to, removing items from, and
+    # clearing the user's shopping cart. The cart is defined as a collection of `Item`
+    # records associated with the current user that are not yet part of an `Order`.
     class CartController < ApplicationController
       before_action :authenticate_user!
       authorize_resource class: false
 
-      # GET /api/v1/users/cart/me
+      # GET /api/v1/cart
       #
-      # Displays the current authenticated user's shopping cart contents.
+      # Displays the contents of the authenticated user's shopping cart.
       #
-      # The cart is dynamically composed of `Item` records associated with the user
-      # that do not yet belong to a confirmed `Order`. The response includes
-      # the total amount and item count, along with details for each item.
+      # The cart includes a list of items, the total quantity of all items,
+      # and the total calculated amount for the cart.
       #
-      # @return [JSON] A JSON object representing the user's cart, including
-      #                `total_amount`, `items_count`, and an array of `items`.
-      def me
+      # @return [void] Sets instance variables for the Jbuilder view to render
+      #   a JSON object representing the cart, with a status of `:ok` (200).
+      def show
         @cart_items = current_user.cart_items.includes(:product)
         @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
         @items_count = @cart_items.sum(:quantity)
         @status = :ok
       end
 
-      # POST /api/v1/users/cart/add/:id
+      # POST /api/v1/cart/add/:product_id
       #
-      # Adds a specified quantity of a product to the authenticated user's shopping cart.
-      # The product ID is taken from the URL path.
+      # Adds a product to the user's shopping cart.
       #
-      # If the product already exists in the cart, its quantity is updated.
-      # If the product is new to the cart, a new cart item is created.
+      # If the product is already in the cart, its quantity is increased. Otherwise,
+      # a new item is created. Returns the updated state of the cart.
       #
-      # @param [Integer] :id The ID of the product to add (from URL path).
-      # @param [Integer] :quantity The quantity of the product to add. Must be greater than 0.
-      # @return [HTTP 204 No Content] On successful addition.
-      # @raise [ActiveRecord::RecordNotFound] If the product is not found (handled by User model).
-      # @raise [ArgumentError] If the quantity is not greater than 0 (handled by User model).
-      # @raise [ActiveRecord::RecordInvalid] If cart item validation fails (handled by User model).
+      # @param [String] :product_id The UUID of the product to add.
+      # @param [Integer] :quantity The quantity to add (must be > 0).
+      #
+      # @return [void] Sets instance variables for the Jbuilder view to render
+      #   the updated cart with a status of `:ok` (200).
+      # @see User#add_product_to_cart
       def add
-        product = Product.find(params[:id])
+        product = Product.find(params[:product_id])
         current_user.add_product_to_cart(product, add_params[:quantity])
         @cart_items = current_user.cart_items.includes(:product)
         @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
@@ -56,21 +52,22 @@ module Api
         @status = :ok
       end
 
-      # DELETE /api/v1/users/cart/revoke/:id
+      # DELETE /api/v1/cart/revoke/:item_id
       #
-      # Removes a specified quantity of a product from the authenticated user's shopping cart,
-      # or removes the entire item if quantity is not specified or is greater than/equal to
-      # the current item quantity.
+      # Removes an item from the user's shopping cart.
       #
-      # @param [Integer] :id The ID of the cart item to modify or remove (from URL path).
-      # @param [Integer] :quantity_to_remove (Optional) The quantity to reduce. If not
-      #                                     provided or if it's greater than/equal to
-      #                                     current quantity, the item is fully removed.
-      # @return [HTTP 200 OK] On successful modification or removal.
-      # @raise [ActiveRecord::RecordNotFound] If the cart item is not found in the user's cart (handled by User model).
-      # @raise [ActiveRecord::RecordInvalid] If cart item validation fails during quantity reduction (handled by User model).
+      # This can be used to completely remove an item or reduce its quantity.
+      # If `quantity_to_remove` is not provided, the entire item is deleted.
+      # Returns the updated state of the cart.
+      #
+      # @param [String] :item_id The ID of the cart item to remove/modify.
+      # @param [Integer] :quantity_to_remove (Optional) The quantity to remove.
+      #
+      # @return [void] Sets instance variables for the Jbuilder view to render
+      #   the updated cart with a status of `:ok` (200).
+      # @see User#remove_product_from_cart
       def revoke
-        current_user.remove_product_from_cart(params[:id], revoke_params[:quantity_to_remove])
+        current_user.remove_product_from_cart(params[:item_id], revoke_params[:quantity_to_remove])
         @cart_items = current_user.cart_items.includes(:product)
         @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
         @items_count = @cart_items.sum(:quantity)
@@ -78,12 +75,13 @@ module Api
         @status = :ok
       end
 
-      # DELETE /api/v1/users/cart/clear
+      # DELETE /api/v1/cart/clear
       #
-      # Clears all items from the authenticated user's shopping cart.
+      # Clears all items from the user's shopping cart.
       #
-      # @return [HTTP 204 No Content] On successful clearing of the cart.
-      # @raise [ActiveRecord::RecordInvalid] If clearing fails (e.g., due to database constraints - handled by User model).
+      # @return [void] Sets instance variables for the Jbuilder view to render
+      #   the empty cart with a status of `:ok` (200).
+      # @see User#clear_user_cart
       def clear
         current_user.clear_user_cart
         @cart_items = current_user.cart_items.includes(:product)
@@ -96,17 +94,15 @@ module Api
       private
 
       # Strong parameters for the 'add' action.
-      # Corrected: Now only permits :quantity. :id comes from the URL.
       #
-      # @return [ActionController::Parameters] Permitted parameters for adding a product.
+      # @return [ActionController::Parameters] Permitted parameters.
       def add_params
         params.permit(:quantity)
       end
 
       # Strong parameters for the 'revoke' action.
-      # Corrected: Now only permits :quantity_to_remove. :id comes from the URL.
       #
-      # @return [ActionController::Parameters] Permitted parameters for revoking a product.
+      # @return [ActionController::Parameters] Permitted parameters.
       def revoke_params
         params.permit(:quantity_to_remove)
       end

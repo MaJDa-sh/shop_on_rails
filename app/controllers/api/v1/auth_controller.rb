@@ -2,28 +2,29 @@
 
 require 'jwt'
 
-# Namespace for API-related controllers and resources.
-#
-# This module encapsulates all API endpoints for the application, providing
-# a structured way to handle API requests.
+# Namespace for API resources and controllers.
 module Api
+  # Namespace for API version v1.
   module V1
-    # Handles authentication-related operations for users via the API.
+    # Handles user authentication-related operations.
     #
-    # This controller provides endpoints for user registration, login, account
-    # activation, and verification, supporting secure authentication with JWT
-    # and two-factor authentication (2FA). Responses are handled by Jbuilder templates.
+    # Provides endpoints for login, two-factor authentication (2FA), account
+    # activation, and password reset. Responses are rendered using Jbuilder templates.
     class AuthController < ApplicationController
       # POST /api/v1/auth/login
       #
-      # Initiates user authentication and generates a 2FA code if required.
+      # Authenticates a user based on email and password.
       #
-      # This endpoint verifies the user's email and password. If two-factor authentication
-      # (2FA) is enabled, a new 2FA code is generated and sent to the user (e.g., via email).
-      # If 2FA is not enabled, a JWT token is generated immediately using HS256.
+      # Verifies credentials. If 2FA is enabled, it generates and sends a
+      # verification code. Otherwise, it immediately returns a JWT.
       #
-      # @param [String] :mail The user's email address
-      # @param [String] :password The user's password
+      # @param [String] :mail The user's email address.
+      # @param [String] :password The user's password.
+      #
+      # @return [void] Sets instance variables (`@user`, `@token` (if 2FA disabled),
+      #   `@message` (if 2FA enabled), and `@status` (`:ok`, `:accepted`, or `:unauthorized`))
+      #   for the Jbuilder view.
+      # @see User.authenticate_user
       def login
         result = User.authenticate_user(params[:mail], params[:password])
         @user = result[:user]
@@ -35,13 +36,17 @@ module Api
 
       # POST /api/v1/auth/verify_2fa
       #
-      # Verifies a two-factor authentication (2FA) code and issues a JWT token.
+      # Verifies a two-factor authentication (2FA) code.
       #
-      # This endpoint verifies the provided 2FA code for a user. If valid, a JWT token
-      # is generated using HS256, and the 2FA code is destroyed to prevent reuse.
+      # Checks the validity of the 2FA code. If valid, it generates a JWT
+      # and destroys the code to prevent reuse.
       #
-      # @param [String] :mail The user's email address
-      # @param [String] :second_factor_code The 2FA code sent to the user
+      # @param [String] :mail The user's email address.
+      # @param [String] :second_factor_code The 2FA code sent to the user.
+      #
+      # @return [void] Sets the `@token` (on success) or `@errors` (on failure)
+      #   instance variables, along with `@status` (`:ok` or `:unauthorized`), for the Jbuilder view.
+      # @see User#verify_2fa_code
       def verify_2fa
         @user = User.find_by(mail: params[:mail])
         if @user
@@ -57,13 +62,17 @@ module Api
 
       # PATCH /api/v1/auth/activate
       #
-      # Activates a user account using an activation code.
+      # Activates a user account with an activation code.
       #
-      # This endpoint verifies the provided activation code and activates the user's
-      # account by setting the `active` attribute to true. The activation code is then destroyed.
+      # Verifies the code and, if valid, sets the user's `active` attribute to
+      # `true`, then destroys the used code.
       #
-      # @param [String] :mail The user's email address
-      # @param [String] :activation_code The activation code sent to the user
+      # @param [String] :mail The user's email address.
+      # @param [String] :activation_code The activation code sent to the user.
+      #
+      # @return [void] Sets the `@message`, `@errors`, and `@status` (`:ok`
+      #   or `:unprocessable_entity`) instance variables for the Jbuilder view.
+      # @see User#activate_with_code
       def activate
         @user = User.find_by(mail: params[:mail])
         if @user
@@ -79,14 +88,17 @@ module Api
 
       # PATCH /api/v1/auth/verify
       #
-      # Verifies a user account using a verification code.
+      # Verifies a user account with a verification code.
       #
-      # This endpoint verifies the provided verification code and marks the user's
-      # account as verified by setting the `verified` attribute to true. The verification
-      # code is then destroyed.
+      # Verifies the code and, if valid, sets the user's `verified` attribute to
+      # `true`, then destroys the used code.
       #
-      # @param [String] :mail The user's email address
-      # @param [String] :verification_code The verification code sent to the user
+      # @param [String] :mail The user's email address.
+      # @param [String] :verification_code The verification code sent to the user.
+      #
+      # @return [void] Sets the `@message`, `@errors`, and `@status` (`:ok`
+      #   or `:unprocessable_entity`) instance variables for the Jbuilder view.
+      # @see User#verify_with_code
       def verify
         @user = User.find_by(mail: params[:mail])
         if @user
@@ -102,13 +114,16 @@ module Api
 
       # POST /api/v1/auth/password/reset
       #
-      # Sends a password reset code to the user's email address.
+      # Initiates the password reset process.
       #
-      # This endpoint finds a user by their email. If the user exists, it generates a
-      # secure, single-use, and time-limited reset code and sends it via email.
-      # It always returns a successful response to prevent email enumeration attacks.
+      # Based on the email address, it sends a password reset code to the user.
+      # Always returns a success response to prevent email enumeration attacks.
       #
-      # @param [String] :mail The user's email address
+      # @param [String] :mail The user's email address.
+      #
+      # @return [void] Sets the `@message` and `@status` (`:ok`) instance variables
+      #   for the Jbuilder view.
+      # @see User.request_password_reset
       def request_reset
         result = User.request_password_reset(params[:mail])
         @message = result[:message]
@@ -117,15 +132,18 @@ module Api
 
       # PATCH /api/v1/auth/password/reset
       #
-      # Resets the user's password using a valid reset code.
+      # Confirms a password reset using a code.
       #
-      # This endpoint verifies the provided reset code. If the code is valid and
-      # not expired, it updates the user's password and destroys the code to
-      # prevent reuse.
+      # Verifies the reset code and, if valid, sets the new password for the user,
+      # then destroys the used code.
       #
-      # @param [String] :reset_code The password reset code sent to the user
-      # @param [String] :password The new password for the account
-      # @param [String] :password_confirmation The confirmation of the new password
+      # @param [String] :reset_code The reset code sent to the user.
+      # @param [String] :password The new password.
+      # @param [String] :password_confirmation The new password confirmation.
+      #
+      # @return [void] Sets the `@message`, `@errors`, and `@status` (`:ok`
+      #   or `:unprocessable_entity`) instance variables for the Jbuilder view.
+      # @see User.reset_password_with_code
       def confirm_reset
         result = User.reset_password_with_code(params[:reset_code], params[:password], params[:password_confirmation])
         @message = result[:message]
@@ -135,9 +153,10 @@ module Api
 
       private
 
-      # Defines permitted parameters for creating or updating a user.
+      # Defines permitted parameters for creating a user.
+      # This is a "strong parameters" method to protect against mass assignment.
       #
-      # @return [ActionController::Parameters] Permitted parameters for the user
+      # @return [ActionController::Parameters] An object with the permitted parameters.
       def user_params
         params.require(:user).permit(
           :mail, :password, :password_confirmation, :phone,

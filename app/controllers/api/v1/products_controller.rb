@@ -1,56 +1,56 @@
 # frozen_string_literal: true
 
-# Namespace for API-related controllers and resources.
-#
-# This module encapsulates all API endpoints for the application, providing
-# a structured way to handle API requests.
+# Namespace for API resources and controllers.
 module Api
+  # Namespace for API version v1.
   module V1
-    # Handles operations for Product resources via the API.
+    # Handles CRUD operations and interactions for Product resources.
     #
-    # This controller provides endpoints to list, show, create, update, and delete
-    # products, with support for pagination and associated product photos.
-    # Responses are handled by Jbuilder templates.
+    # Provides endpoints to list, show, create, update, and delete products,
+    # as well as actions for liking, rating, and commenting.
     class ProductsController < ApplicationController
       before_action :authenticate_user!, except: %i[index show]
       load_and_authorize_resource
 
       # GET /api/v1/products
       #
-      # Retrieves a paginated list of products with their associated photos.
+      # Retrieves a paginated list of products.
       #
-      # This endpoint returns a list of products with basic information (id, name, price, description)
-      # and their associated photos. It supports pagination with 25 products per page.
+      # Supports pagination and includes associated photos, likes, and comments
+      # to reduce N+1 queries.
       #
-      # @param [Integer] :page The page number for pagination (optional)
+      # @param [Integer] :page (Optional) The page number for pagination.
+      # @return [void] Sets `@products` for the Jbuilder view, rendering with
+      #   a status of `:ok` (200).
       def index
-        @products = Product.includes(:product_photos, :product_likes, :product_comments).page(params[:page]).per(25)
+        @products = Product.includes(:product_photos, :likes, :comments).page(params[:page]).per(25)
         @status = :ok
       end
 
       # GET /api/v1/products/:id
       #
-      # Retrieves a single product by ID.
+      # Retrieves a single product by its ID.
       #
-      # This endpoint returns the details of a specific product, including its name, price,
-      # description, and associated photos.
+      # The `@product` instance variable is loaded and authorized automatically
+      # by CanCanCan's `load_and_authorize_resource`.
+      #
+      # @return [void] Renders the `@product` using the Jbuilder view with a
+      #   status of `:ok` (200).
       def show
         @status = :ok
       end
 
       # POST /api/v1/products
       #
-      # Creates a new product with the provided attributes.
+      # Creates a new product (Admin/Moderator only).
       #
-      # This endpoint allows the creation of a new product by providing a name, price,
-      # description, and optional associated photos.
+      # @param [Hash] :product The parameters for the product.
+      # @option product [String] :name The product's name.
+      # @option product [Decimal] :price The product's price.
+      # @option product [String] :description The product's description.
       #
-      # @param [Hash] product_params Parameters for creating a product
-      # @option product_params [String] :name The product's name (required)
-      # @option product_params [Float] :price The product's price (required)
-      # @option product_params [String] :description The product's description (optional)
-      # @option product_params [Array<Hash>] :product_photos_attributes Nested attributes for product photos
-      # @option product_params [Array<Integer>] :product_photo_ids IDs of associated product photos
+      # @return [void] On success, sets `@product` and renders with `:created` (201).
+      #   On failure, sets `@errors` and renders with `:unprocessable_entity` (422).
       def create
         @product = Product.new(product_params)
         if @product.save
@@ -61,18 +61,19 @@ module Api
         end
       end
 
-      # PUT /api/v1/products/:id
+      # PATCH/PUT /api/v1/products/:id
       #
-      # Updates an existing product with the provided attributes.
+      # Updates an existing product (Admin/Moderator only).
       #
-      # This endpoint allows updating a product's name, price, description, or associated photos.
+      # The `@product` is loaded automatically by `load_and_authorize_resource`.
       #
-      # @param [Hash] product_params Parameters for updating a product
-      # @option product_params [String] :name The product's name
-      # @option product_params [Float] :price The product's price
-      # @option product_params [String] :description The product's description
-      # @option product_params [Array<Hash>] :product_photos_attributes Nested attributes for product photos
-      # @option product_params [Array<Integer>] :product_photo_ids IDs of associated product photos
+      # @param [Hash] :product The parameters for the product.
+      # @option product [String] :name The product's name.
+      # @option product [Decimal] :price The product's price.
+      # @option product [String] :description The product's description.
+      #
+      # @return [void] On success, renders with `:ok` (200). On failure, sets
+      #   `@errors` and renders with `:unprocessable_entity` (422).
       def update
         if @product.update(product_params)
           @status = :ok
@@ -84,9 +85,11 @@ module Api
 
       # DELETE /api/v1/products/:id
       #
-      # Deletes a product by ID.
+      # Deletes a product permanently (Admin/Moderator only).
       #
-      # This endpoint removes a product and its associated data (e.g., photos).
+      # The `@product` is loaded automatically by `load_and_authorize_resource`.
+      #
+      # @return [void] Renders with a status of `:no_content` (204) on success.
       def destroy
         @product.destroy
         @status = :no_content
@@ -94,15 +97,13 @@ module Api
 
       # POST /api/v1/products/:id/like
       #
-      # Allows the authenticated user to like a specific product.
+      # Allows an authenticated user to like a product.
       #
-      # This endpoint creates a record of the user liking the product.
-      # A user can like a product only once.
+      # A user can only like a product once. Logic is handled by the User model.
       #
-      # @param [Integer] :id The ID of the product to like.
-      # @return [JSON] A JSON object indicating success or failure.
-      # @raise [ActiveRecord::RecordNotFound] If the product is not found.
-      # @raise [ActiveRecord::RecordInvalid] If the like operation fails (e.g., user already liked).
+      # @return [void] Sets instance variables for the Jbuilder view to render
+      #   a success or failure message with an appropriate status.
+      # @see User#like_product
       def like
         result = current_user.like_product(@product)
         @message = result[:message]
@@ -112,17 +113,18 @@ module Api
 
       # POST /api/v1/products/:id/rate
       #
-      # Allows the authenticated user to rate a specific product.
+      # Allows an authenticated user to rate a product.
       #
-      # This endpoint creates or updates a user's rating for a product.
-      # A user can rate a product only once.
+      # A user can only rate a product once; subsequent calls will update the rating.
+      # Logic is handled by the User model.
       #
-      # @param [Integer] :id The ID of the product to rate.
-      # @param [Integer] :rating The rating value (1-5).
-      # @param [String] :comment (Optional) A comment accompanying the rating.
-      # @return [JSON] A JSON object indicating success or failure.
-      # @raise [ActiveRecord::RecordNotFound] If the product is not found.
-      # @raise [ActiveRecord::RecordInvalid] If the rating operation fails (e.g., invalid rating value, user already rated).
+      # @param [Hash] :product_rating The parameters for the rating.
+      # @option product_rating [Integer] :rating The rating value (1-5).
+      # @option product_rating [String] :comment (Optional) A comment.
+      #
+      # @return [void] Sets instance variables for the Jbuilder view to render
+      #   a success or failure message with an appropriate status.
+      # @see User#rate_product
       def rate
         result = current_user.rate_product(@product, rate_params[:rating], rate_params[:comment])
         @message = result[:message]
@@ -132,17 +134,17 @@ module Api
 
       # POST /api/v1/products/:id/comment
       #
-      # Allows the authenticated user to add a comment to a specific product.
+      # Allows an authenticated user to add a comment to a product.
       #
-      # This endpoint creates a new comment associated with the product and the user.
-      # Comments can be top-level or replies to existing comments.
+      # Logic is handled by the User model.
       #
-      # @param [Integer] :id The ID of the product to comment on.
-      # @param [String] :content The content of the comment (required).
-      # @param [Integer] :parent_id (Optional) The ID of the parent comment, if this is a reply.
-      # @return [JSON] A JSON object indicating success or failure.
-      # @raise [ActiveRecord::RecordNotFound] If the product or parent comment is not found.
-      # @raise [ActiveRecord::RecordInvalid] If the comment creation fails (e.g., empty content).
+      # @param [Hash] :product_comment The parameters for the comment.
+      # @option product_comment [String] :content The comment's content.
+      # @option product_comment [String] :parent_id (Optional) The ID of the parent comment.
+      #
+      # @return [void] Sets instance variables for the Jbuilder view to render
+      #   a success or failure message with an appropriate status.
+      # @see User#add_comment_to_product
       def comment
         result = current_user.add_comment_to_product(@product, comment_params[:content], comment_params[:parent_id])
         @message = result[:message]
@@ -152,17 +154,20 @@ module Api
 
       private
 
+      # Defines permitted parameters for the 'rate' action.
+      # @return [ActionController::Parameters] Permitted parameters.
       def rate_params
         params.require(:product_rating).permit(:rating, :comment)
       end
 
+      # Defines permitted parameters for the 'comment' action.
+      # @return [ActionController::Parameters] Permitted parameters.
       def comment_params
         params.require(:product_comment).permit(:content, :parent_id)
       end
 
       # Defines permitted parameters for creating or updating a product.
-      #
-      # @return [ActionController::Parameters] Permitted parameters for the product
+      # @return [ActionController::Parameters] Permitted parameters.
       def product_params
         params.require(:product).permit(
           :name, :price, :description,

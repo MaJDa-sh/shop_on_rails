@@ -2,18 +2,14 @@
 
 require 'jwt'
 
-# Namespace for API-related controllers and resources.
-#
-# This module encapsulates all API endpoints for the application, providing
-# a structured way to handle API requests.
+# Namespace for API resources and controllers.
 module Api
+  # Namespace for API version v1.
   module V1
     # Handles operations for User resources via the API.
     #
-    # This controller provides endpoints to manage user accounts, including
-    # registration, profile management, role updates, and action history.
-    # It supports pagination, authentication, and authorization for secure access.
-    # Responses are handled by Jbuilder templates.
+    # Provides endpoints for user registration, profile management, role updates,
+    # and action history. It supports authentication and authorization for secure access.
     class UsersController < ApplicationController
       load_and_authorize_resource except: %i[create me logout]
       before_action :authenticate_user!,
@@ -21,21 +17,19 @@ module Api
                              update_entrepreneur_details]
       before_action :authorize_admin!, only: %i[index role]
 
-      # POST /api/v1/users/create
+      # POST /api/v1/users
       #
       # Creates a new user account (registration).
       #
-      # This endpoint allows a new user to register by providing an email, password,
-      # and optional phone number and user details (e.g., first name, last name).
-      # Upon successful creation, an activation code is generated for account verification.
+      # Upon successful creation, an activation code is generated and associated
+      # with the user's account for later verification.
       #
-      # @param [Hash] user_params Parameters for creating a user
-      # @option user_params [String] :mail The user's email address (required, unique)
-      # @option user_params [String] :password The user's password (required)
-      # @option user_params [String] :password_confirmation Password confirmation (required)
-      # @option user_params [String] :phone The user's phone number (optional, unique)
-      # @option user_params [Hash] :user_detail_attributes Nested attributes for user details
-      #   (e.g., { first_name: "John", last_name: "Doe" })
+      # @param [Hash] :user The parameters for the user.
+      # @option user [String] :mail User's email (required, unique).
+      # @option user [String] :password User's password (required).
+      #
+      # @return [void] On success, sets `@user` and renders with `:created` (201).
+      #   On failure, sets `@errors` and renders with `:unprocessable_entity` (422).
       def create
         @user = User.new(user_params)
         if @user.save
@@ -49,110 +43,85 @@ module Api
 
       # GET /api/v1/users/:id
       #
-      # Retrieves a single user by ID.
+      # Retrieves a single user by their ID.
       #
-      # This endpoint returns the details of a specific user, including their email,
-      # phone, role, and associated user details. It requires authentication and
-      # is accessible only to the user themselves or an admin. The user must be active
-      # and verified to access their profile.
+      # Accessible only to the user themselves or an admin. The `@user` instance
+      # variable is loaded and authorized automatically by CanCanCan.
+      #
+      # @return [void] Renders the `@user` using the Jbuilder view with a
+      #   status of `:ok` (200).
       def show
         @status = :ok
       end
 
-      # PATCH/PUT /api/v1/users/:id/update
+      # PATCH/PUT /api/v1/users/:id
       #
       # Updates an existing user's information.
       #
-      # This endpoint allows the user or an admin to update the user's email, phone,
-      # password, or associated user details. Sensitive changes may require additional
-      # verification (e.g., current password). It requires authentication and is accessible
-      # only to the user themselves or an admin.
+      # Accessible only to the user themselves or an admin. The `@user` instance
+      # variable is loaded automatically by CanCanCan.
       #
-      # @param [Hash] user_params Parameters for updating a user
-      # @option user_params [String] :mail The user's email address
-      # @option user_params [String] :password The user's new password
-      # @option user_params [String] :password_confirmation Password confirmation
-      # @option user_params [String] :phone The user's phone number
-      # @option user_params [Hash] :user_detail_attributes Nested attributes for user details
+      # @param [Hash] :user The parameters for updating the user.
+      #
+      # @return [void] Renders with `:ok` (200) on success. On failure, sets
+      #   `@errors` and renders with `:unprocessable_entity` (422).
+      # @see User#update_with_params
       def update
         result = @user.update_with_params(user_params)
         @errors = result[:errors]
         @status = result[:status]
       end
 
-      # PUT /api/v1/users/:id/update_location
+      # PATCH /api/v1/users/:id/update_location
       #
       # Updates the user's location information.
       #
-      # This endpoint allows the user or an admin to update or create a location record
-      # associated with the user's details, including country, province, city, postal code,
-      # street, building number, and apartment number. It requires authentication and is
-      # accessible only to the user themselves or an admin. The user must be active and verified.
+      # @param [Hash] :location The parameters for the location.
       #
-      # @param [Hash] location_params Parameters for updating a location
-      # @option location_params [String] :country The country (required)
-      # @option location_params [String] :province The province or state (required)
-      # @option location_params [String] :city The city (required)
-      # @option location_params [String] :postal_code The postal code (required)
-      # @option location_params [String] :street The street name (optional)
-      # @option location_params [Integer] :building_number The building number (optional, must be positive)
-      # @option location_params [Integer] :apartment_number The apartment number (optional, must be non-negative)
+      # @return [void] Renders with `:ok` (200) on success or an error status
+      #   on failure.
+      # @see User#update_user_location
       def update_location
         result = @user.update_user_location(location_params)
         @errors = result[:errors]
         @status = result[:status]
       end
 
-      # PATCH/PUT /api/v1/users/:id/update_details
+      # PATCH /api/v1/users/:id/update_details
       #
       # Updates the user's personal details.
       #
-      # This endpoint allows the user or an admin to update the user's personal details,
-      # such as name, first name, and last name. It requires authentication and is accessible
-      # only to the user themselves or an admin. The user must be active and verified.
+      # @param [Hash] :user_detail The parameters for the user's details.
       #
-      # @param [Hash] user_detail_params Parameters for updating user details
-      # @option user_detail_params [String] :name The full name (required)
-      # @option user_detail_params [String] :first_name The first name (optional)
-      # @option user_detail_params [String] :last_name The last name (optional)
+      # @return [void] Renders with `:ok` (200) on success or an error status
+      #   on failure.
+      # @see User#update_user_details
       def update_details
         result = @user.update_user_details(user_detail_params)
         @errors = result[:errors]
         @status = result[:status]
       end
 
-      # PATCH/PUT /api/v1/users/:id/update_entrepreneur_details
+      # PATCH /api/v1/users/:id/update_entrepreneur_details
       #
       # Updates the user's entrepreneur-specific details.
       #
-      # This endpoint allows the user or an admin to update or create entrepreneur-related
-      # data, such as business name, NIP, KRS, income, costs, and other business details.
-      # It requires authentication and is accessible only to the user themselves or an admin.
-      # The user must be active and verified.
+      # @note The manual authorization checks in this action may be redundant if
+      #   they are already handled by your CanCanCan ability file.
       #
-      # @param [Hash] entrepreneur_detail_params Parameters for updating entrepreneur details
-      # @option entrepreneur_detail_params [String] :business_name The business name (optional)
-      # @option entrepreneur_detail_params [String] :nip The NIP number (optional, unique)
-      # @option entrepreneur_detail_params [String] :krs The KRS number (optional, unique)
-      # @option entrepreneur_detail_params [String] :description The business description (optional)
-      # @option entrepreneur_detail_params [String] :offer The business offer (optional)
-      # @option entrepreneur_detail_params [Float] :income The business income (optional, non-negative)
-      # @option entrepreneur_detail_params [Float] :costs The business costs (optional, non-negative)
-      # @option entrepreneur_detail_params [Float] :funding_capital The funding capital (optional)
-      # @option entrepreneur_detail_params [String] :industry The industry (optional)
-      # @option entrepreneur_detail_params [Hash] :management_council_members JSONB data for council members (optional)
-      # @option entrepreneur_detail_params [Hash] :decision_makers JSONB data for decision makers (optional)
-      # @option entrepreneur_detail_params [String] :business_phone_number The business phone number (optional)
-      # @option entrepreneur_detail_params [String] :business_mail The business email (optional)
-      # @option entrepreneur_detail_params [String] :website_address The business website (optional)
+      # @param [Hash] :entrepreneur_detail The parameters for the entrepreneur details.
+      #
+      # @return [void] Renders with `:ok` (200) on success or an error status
+      #   on failure.
+      # @see User#update_user_entrepreneur_details
       def update_entrepreneur_details
         unless @user.accessible_by?(current_user)
-          @errors = ['you can only update your own entrepreneur details']
+          @errors = ['You can only update your own entrepreneur details.']
           @status = :forbidden
           return
         end
         unless @user.active? && @user.verified?
-          @errors = ['user account is not active or verified']
+          @errors = ['User account is not active or verified.']
           @status = :forbidden
           return
         end
@@ -161,12 +130,14 @@ module Api
         @status = result[:status]
       end
 
-      # DELETE /api/v1/users/:id/delete
+      # DELETE /api/v1/users/:id
       #
       # Deletes a user account.
       #
-      # This endpoint removes a user and their associated data (e.g., user details,
-      # settings, activation codes). It is accessible only to the user themselves or an admin.
+      # Accessible only to the user themselves or an admin.
+      #
+      # @return [void] Renders with a status of `:no_content` (204) on success.
+      # @see User#destroy_user
       def destroy
         result = @user.destroy_user
         @status = result[:status]
@@ -176,22 +147,21 @@ module Api
       #
       # Retrieves the profile of the currently authenticated user.
       #
-      # This endpoint returns the details of the logged-in user, including email, phone,
-      # role, and associated user details or settings. The user must be active and verified.
+      # @return [void] Sets `@user` to `current_user` and renders with a
+      #   status of `:ok` (200).
       def me
         @user = current_user
         @status = :ok
       end
 
-      # GET /api/v1/users/index
+      # GET /api/v1/users
       #
-      # Retrieves a paginated list of users.
+      # Retrieves a paginated list of all users (Admin only).
       #
-      # This endpoint returns a list of users with basic information (id, mail, role).
-      # It is accessible only to users with the `admin` role and supports pagination
-      # with 25 users per page.
+      # @param [Integer] :page (Optional) The page number for pagination.
       #
-      # @param [Integer] :page The page number for pagination (optional)
+      # @return [void] Sets `@users` for the Jbuilder view, rendering with
+      #   a status of `:ok` (200).
       def index
         @users = User.page(params[:page]).per(25)
         @status = :ok
@@ -199,12 +169,12 @@ module Api
 
       # PATCH /api/v1/users/:id/role/update
       #
-      # Updates the role of a user.
+      # Updates the role of a specific user (Admin only).
       #
-      # This endpoint allows an admin to change a user's role (e.g., regular, moderator, admin).
-      # It requires admin privileges.
+      # @param [String] :role The new role for the user (e.g., "moderator", "admin").
       #
-      # @param [String] :role The new role for the user (regular, moderator, admin)
+      # @return [void] Renders with `:ok` (200) on success or an error status
+      #   on failure.
       def role
         result = @user.update_with_params(role: params[:role])
         @errors = result[:errors]
@@ -213,10 +183,12 @@ module Api
 
       # POST /api/v1/users/logout
       #
-      # Logs out the current user by blacklisting their JWT token.
+      # Logs out the current user by blacklisting their JWT.
       #
-      # This endpoint invalidates the user's current JWT token by adding it to the
-      # BlacklistedToken model, effectively logging them out.
+      # The token is extracted from the `Authorization` header.
+      #
+      # @return [void] Renders a success or failure message with an appropriate status.
+      # @see User#blacklist_token
       def logout
         token = request.headers['Authorization']&.split&.last
         result = current_user.blacklist_token(token)
@@ -227,13 +199,14 @@ module Api
 
       # GET /api/v1/users/:id/actions
       #
-      # Retrieves a paginated list of actions performed by a user.
+      # Retrieves a paginated history of a user's actions.
       #
-      # This endpoint returns the action history (e.g., login, password changes) for a
-      # specific user, accessible to the user themselves or an admin. It supports
-      # pagination with 25 actions per page.
+      # Accessible only to the user themselves or an admin.
       #
-      # @param [Integer] :page The page number for pagination (optional)
+      # @param [Integer] :page (Optional) The page number for pagination.
+      #
+      # @return [void] Sets `@actions` for the Jbuilder view, rendering with
+      #   a status of `:ok` (200).
       def actions
         @actions = @user.user_actions.page(params[:page]).per(25)
         @status = :ok
@@ -242,8 +215,7 @@ module Api
       private
 
       # Defines permitted parameters for creating or updating a user.
-      #
-      # @return [ActionController::Parameters] Permitted parameters for the user
+      # @return [ActionController::Parameters] An object with the permitted parameters.
       def user_params
         params.require(:user).permit(
           :mail, :password, :password_confirmation, :phone,
@@ -251,6 +223,8 @@ module Api
         )
       end
 
+      # Defines permitted parameters for updating a user's location.
+      # @return [ActionController::Parameters] An object with the permitted parameters.
       def location_params
         params.require(:location).permit(
           :country, :province, :city, :postal_code, :street,
@@ -258,10 +232,14 @@ module Api
         )
       end
 
+      # Defines permitted parameters for updating a user's personal details.
+      # @return [ActionController::Parameters] An object with the permitted parameters.
       def user_detail_params
         params.require(:user_detail).permit(:name, :first_name, :last_name)
       end
 
+      # Defines permitted parameters for updating a user's entrepreneur details.
+      # @return [ActionController::Parameters] An object with the permitted parameters.
       def entrepreneur_detail_params
         params.require(:entrepreneur_detail).permit(
           :business_name, :nip, :krs, :description, :offer, :income, :costs,

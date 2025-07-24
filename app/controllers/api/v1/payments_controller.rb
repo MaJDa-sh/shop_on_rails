@@ -1,27 +1,27 @@
 # frozen_string_literal: true
 
-# Namespace for API-related controllers and resources.
-#
-# This module encapsulates all API endpoints for the application, providing
-# a structured way to handle API requests.
+# Namespace for API resources and controllers.
 module Api
+  # Namespace for API version v1.
   module V1
     # Handles operations for Payment resources via the API.
     #
     # This controller provides endpoints to create and view payments associated with orders.
-    # It integrates with the Payment model, which handles the interaction with the
+    # It integrates with the Payment model, which handles interaction with the
     # Stripe payment gateway. Access is restricted based on user ownership and roles.
-    # Responses are handled by Jbuilder templates.
     class PaymentsController < ApplicationController
       before_action :authenticate_user!
       load_and_authorize_resource
 
       # GET /api/v1/payments
       #
-      # Retrieves a list of all payments.
+      # Retrieves a list of all payments (Admin only).
       #
       # This endpoint is restricted to admin users and returns a comprehensive list
-      # of all payment transactions in the system.
+      # of all payment transactions in the system, ordered by creation date.
+      #
+      # @return [void] Sets `@payments` for the Jbuilder view, rendering with
+      #   a status of `:ok` (200).
       def index
         @payments = Payment.includes(:order).order(created_at: :desc)
         @status = :ok
@@ -29,37 +29,44 @@ module Api
 
       # GET /api/v1/payments/:id
       #
-      # Retrieves a single payment by ID.
+      # Retrieves a single payment by its ID.
       #
-      # This endpoint returns the details of a specific payment. It is accessible only
-      # to the user who owns the associated order or to an admin.
+      # The `@payment` instance variable is loaded and authorized automatically
+      # by CanCanCan's `load_and_authorize_resource`. Accessible only to the
+      # user who owns the associated order or to an admin.
+      #
+      # @return [void] Renders the `@payment` using the Jbuilder view with a
+      #   status of `:ok` (200).
       def show
         @status = :ok
       end
 
       # POST /api/v1/payments
       #
-      # Creates a new payment for a specific order.
+      # Creates a new payment for a specific order using a Stripe token.
       #
-      # This endpoint initiates a payment process for an order. It requires an `order_id`
-      # and a `stripe_token` (obtained from a client-side Stripe integration). The controller
-      # verifies ownership and order status before attempting to create the payment, which
-      # triggers a charge via the Stripe API in the Payment model.
+      # This action validates that the order belongs to the current user and has not
+      # been paid for. It then attempts to create a Stripe charge via a callback
+      # in the Payment model.
       #
-      # @param [Hash] payment_params Parameters for creating a payment.
-      # @option payment_params [Integer] :order_id The ID of the order to pay for.
-      # @option payment_params [String] :stripe_token The single-use token from Stripe.
+      # @param [Hash] :payment The parameters for the payment.
+      # @option payment [Integer] :order_id The ID of the order to be paid.
+      # @option payment [String] :stripe_token The single-use token from Stripe.
+      #
+      # @return [void] On success, sets `@payment` and renders with `:created` (201).
+      #   On failure, sets `@errors` and renders with `:not_found` (404) or
+      #   `:unprocessable_entity` (422).
       def create
         order = current_user.orders.find_by(id: payment_params[:order_id])
 
         if order.nil?
-          @errors = ['order not found or does not belong to the user']
+          @errors = ['Order not found or does not belong to the user.']
           @status = :not_found
           return
         end
 
         if order.paid?
-          @errors = ['this order has already been paid for']
+          @errors = ['This order has already been paid for.']
           @status = :unprocessable_entity
           return
         end
@@ -89,7 +96,7 @@ module Api
 
       # Defines permitted parameters for creating a payment.
       #
-      # @return [ActionController::Parameters] Permitted parameters for the payment.
+      # @return [ActionController::Parameters] An object with the permitted parameters.
       def payment_params
         params.require(:payment).permit(:order_id, :stripe_token)
       end
