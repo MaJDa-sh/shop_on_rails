@@ -115,16 +115,12 @@ module Api
       #   on failure.
       # @see User#update_user_entrepreneur_details
       def update_entrepreneur_details
-        unless @user.accessible_by?(current_user)
-          @errors = ['You can only update your own entrepreneur details.']
-          @status = :forbidden
-          return
-        end
         unless @user.active? && @user.verified?
           @errors = ['User account is not active or verified.']
           @status = :forbidden
           return
         end
+
         result = @user.update_user_entrepreneur_details(entrepreneur_detail_params)
         @errors = result[:errors]
         @status = result[:status]

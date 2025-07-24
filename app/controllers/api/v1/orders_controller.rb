@@ -64,27 +64,14 @@ module Api
       #   On failure (e.g., empty cart), sets `@errors` and renders with
       #   `:unprocessable_entity` (422).
       def create
-        cart_items = current_user.cart_items
-        if cart_items.empty?
-          @errors = ['Your cart is empty.']
+        result = current_user.place_order
+        if result[:success]
+          @order = result[:order]
+          @status = :created
+        else
+          @errors = result[:errors]
           @status = :unprocessable_entity
-          return
         end
-
-        @order.user = current_user
-        @order.status = :pending
-        @order.payment_status = :unpaid
-
-        ActiveRecord::Base.transaction do
-          @order.save!
-          cart_items.update_all(order_id: @order.id)
-          @order.reload.save!
-        end
-
-        @status = :created
-      rescue ActiveRecord::RecordInvalid => e
-        @errors = e.record.errors.full_messages
-        @status = :unprocessable_entity
       end
 
       # PATCH/PUT /api/v1/orders/:id

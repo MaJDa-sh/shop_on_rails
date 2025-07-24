@@ -57,37 +57,16 @@ module Api
       #   On failure, sets `@errors` and renders with `:not_found` (404) or
       #   `:unprocessable_entity` (422).
       def create
-        order = current_user.orders.find_by(id: payment_params[:order_id])
-
-        if order.nil?
-          @errors = ['Order not found or does not belong to the user.']
-          @status = :not_found
-          return
-        end
-
-        if order.paid?
-          @errors = ['This order has already been paid for.']
-          @status = :unprocessable_entity
-          return
-        end
-
-        @payment = Payment.new(
-          order: order,
-          amount: order.total_amount,
-          stripe_token: payment_params[:stripe_token],
-          payment_method: 'stripe'
+        result = current_user.pay_for_order(
+          order_id: payment_params[:order_id],
+          stripe_token: payment_params[:stripe_token]
         )
 
-        if @payment.save
-          if @payment.completed?
-            order.mark_as_paid!
-            @status = :created
-          else
-            @errors = [@payment.error_message]
-            @status = :unprocessable_entity
-          end
+        if result[:success]
+          @payment = result[:payment]
+          @status = :created
         else
-          @errors = @payment.errors.full_messages
+          @errors = result[:errors]
           @status = :unprocessable_entity
         end
       end

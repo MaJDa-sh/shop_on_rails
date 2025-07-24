@@ -246,6 +246,45 @@ class User < ApplicationRecord
     end
   end
 
+  def place_order
+    raise ActiveRecord::RecordInvalid, 'Cart is empty' if cart_items.empty?
+
+    order = nil
+    ActiveRecord::Base.transaction do
+      order = orders.create!(status: :pending, payment_status: :unpaid)
+      cart_items.update_all(order_id: order.id)
+      order.reload.save!
+    end
+    { success: true, order: order }
+  rescue ActiveRecord::RecordInvalid => e
+    errors = e.record ? e.record.errors.full_messages : [e.message]
+    { success: false, errors: errors }
+  end
+
+  def pay_for_order(order_id:, stripe_token:)
+    order = orders.find(order_id)
+    raise StandardError, 'This order has already been paid for.' if order.paid?
+
+    payment = Payment.new(
+      order: order,
+      amount: order.total_amount,
+      stripe_token: stripe_token,
+      payment_method: 'stripe'
+    )
+
+    payment.save!
+    raise StandardError, payment.error_message unless payment.completed?
+
+    order.mark_as_paid!
+    { success: true, payment: payment }
+  rescue ActiveRecord::RecordNotFound
+    { success: false, errors: ['Order not found or does not belong to the user.'] }
+  rescue ActiveRecord::RecordInvalid => e
+    { success: false, errors: e.record.errors.full_messages }
+  rescue StandardError => e
+    { success: false, errors: [e.message] }
+  end
+
   def like_product(product)
     raise ActiveRecord::RecordNotFound, 'Product not found' unless product
     if ProductLike.exists?(user: self, product: product)
