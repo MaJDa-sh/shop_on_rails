@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# frozen_string_literal: true
+
 class Ability
   include CanCan::Ability
 
@@ -8,11 +10,14 @@ class Ability
 
     if user.persisted?
       can %i[like rate comment], Product
+
       can :manage, :cart
       can :create, Payment
       can :show, Payment, order: { user_id: user.id }
-      can %i[create me], Order
-      can %i[read cancel], Order, user_id: user.id
+
+      can :create, Order
+      can :read, Order, user_id: user.id
+      can :cancel, Order, user_id: user.id
     end
 
     if user.admin?

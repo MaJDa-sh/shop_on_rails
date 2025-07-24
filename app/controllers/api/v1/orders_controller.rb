@@ -14,7 +14,7 @@ module Api
     # Responses are handled by Jbuilder templates.
     class OrdersController < ApplicationController
       before_action :authenticate_user!
-      before_action :set_order, only: %i[show update destroy cancel]
+      load_and_authorize_resource exccept: [:me]
 
       # GET /api/v1/orders
       #
@@ -24,11 +24,7 @@ module Api
       # it returns all orders. Otherwise, it returns only the orders belonging to the
       # current user.
       def index
-        @orders = if current_user.admin?
-                    Order.includes(:user, :items).order(created_at: :desc)
-                  else
-                    current_user.orders.includes(:items).order(created_at: :desc)
-                  end
+        @orders = Order.accessible_by(current_ability).includes(:user, :items).order(created_at: :desc)
         @status = :ok
       end
 
@@ -51,11 +47,6 @@ module Api
       # items, and total amount. It is accessible only to the user who owns the
       # order or to an admin.
       def show
-        unless @order.accessible_by?(current_user)
-          @errors = ['user is not authorized for this action']
-          @status = :forbidden
-          return
-        end
         @status = :ok
       end
 
@@ -69,12 +60,15 @@ module Api
       def create
         cart_items = current_user.cart_items
         if cart_items.empty?
-          @errors = ['your cart is empty']
+          @errors = ['Your cart is empty.']
           @status = :unprocessable_entity
           return
         end
 
-        @order = Order.new(user: current_user, status: :pending, payment_status: :unpaid)
+        @order.user = current_user
+        @order.status = :pending
+        @order.payment_status = :unpaid
+
         ActiveRecord::Base.transaction do
           @order.save!
           cart_items.update_all(order_id: @order.id)
@@ -98,12 +92,6 @@ module Api
       # @option order_params [String] :status The new order status (e.g., "shipped", "delivered").
       # @option order_params [String] :payment_status The new payment status (e.g., "paid").
       def update
-        unless current_user.admin?
-          @errors = ['user is not authorized for this action']
-          @status = :forbidden
-          return
-        end
-
         result = @order.update_with_params(order_params)
         @errors = result[:errors]
         @status = result[:status]
@@ -117,11 +105,6 @@ module Api
       # any order. An order can only be cancelled if it is in a 'pending' or
       # 'processing' state.
       def cancel
-        unless @order.accessible_by?(current_user)
-          @errors = ['user is not authorized for this action']
-          @status = :forbidden
-          return
-        end
         result = @order.cancel_order
         @message = result[:message]
         @errors = result[:errors]
@@ -135,11 +118,6 @@ module Api
       # This endpoint removes an order and its associated data from the database.
       # This action is restricted to admin users only.
       def destroy
-        unless current_user.admin?
-          @errors = ['user is not authorized for this action']
-          @status = :forbidden
-          return
-        end
         result = @order.destroy_order
         @status = result[:status]
       end
@@ -151,18 +129,6 @@ module Api
       # @return [ActionController::Parameters] Permitted parameters for the order.
       def order_params
         params.require(:order).permit(:status, :payment_status)
-      end
-
-      # Sets the @order instance variable from the ID in the request parameters.
-      #
-      # This is a before_action callback for endpoints that operate on a specific order.
-      # It handles the case where the order is not found.
-      def set_order
-        @order = Order.find(params[:id])
-      rescue ActiveRecord::RecordNotFound
-        @errors = ['order not found']
-        @status = :not_found
-        render 'api/v1/shared/errors'
       end
     end
   end
