@@ -173,4 +173,4 @@ The request specs in the `spec/requests` directory also serve as the definitions
 
 ## License
 © 2025 Robert Moń, Kacper Majda All Rights Reserved.
-You use whenever you want for non-commercial purposes.
+Use this stuff whenever you want for non-commercial purposes.
