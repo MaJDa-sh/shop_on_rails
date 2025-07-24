@@ -1,21 +1,16 @@
 # frozen_string_literal: true
 
-class Comment < ApplicationRecord
-  belongs_to :product
-  belongs_to :user
+class CreateComments < ActiveRecord::Migration[7.0]
+  def change
+    create_table :comments do |t|
+      t.references :product, type: :uuid, null: false, foreign_key: true
 
-  belongs_to :parent, class_name: 'Comment', optional: true, counter_cache: :replies_count
+      t.references :user, null: false, foreign_key: true
 
-  has_many :replies, class_name: 'Comment', foreign_key: :parent_id, dependent: :destroy
-
-  validates :content, presence: true, length: { minimum: 1, maximum: 1000 }
-  validates :user, presence: true
-  validates :product, presence: true
-
-  scope :top_level, -> { where(parent_id: nil) }
-  scope :recent, -> { order(created_at: :desc) }
-
-  def is_reply?
-    parent_id.present?
+      t.text :content, null: false
+      t.references :parent, foreign_key: { to_table: :comments }, index: true
+      t.integer :replies_count, default: 0, null: false
+      t.timestamps
+    end
   end
 end

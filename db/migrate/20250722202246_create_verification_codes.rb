@@ -4,7 +4,6 @@ class CreateVerificationCodes < ActiveRecord::Migration[8.0]
       t.references :user, null: false, foreign_key: true
       t.string :code, null: false
       t.datetime :expires_at, null: false
-
       t.timestamps
     end
 

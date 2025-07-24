@@ -4,7 +4,6 @@ class CreateEntrepreneurDetails < ActiveRecord::Migration[8.0]
   def change
     create_table :entrepreneur_details do |t|
       t.references :user_detail, null: false, foreign_key: true, index: { unique: true }
-
       t.string :business_name
       t.string :nip
       t.string :krs
@@ -19,7 +18,6 @@ class CreateEntrepreneurDetails < ActiveRecord::Migration[8.0]
       t.string :business_phone_number
       t.string :business_mail
       t.string :website_address
-
       t.timestamps
     end
 

@@ -24,18 +24,27 @@ RSpec.configure do |config|
     postgresql_container.start
     redis_container.start
 
-    ActiveRecord::Base.establish_connection(
-      adapter: 'postgresql',
-      host: postgresql_container.host,
-      port: postgresql_container.port,
-      database: postgresql_container.database,
-      username: postgresql_container.username,
-      password: postgresql_container.password
-    )
+    db_config = {
+      'test' => {
+        'adapter' => 'postgresql',
+        'encoding' => 'unicode',
+        'pool' => 5,
+        'host' => postgresql_container.host,
+        'port' => postgresql_container.port,
+        'database' => postgresql_container.database,
+        'username' => postgresql_container.username,
+        'password' => postgresql_container.password
+      }
+    }
+
+    ActiveRecord::Base.configurations = db_config
+    ActiveRecord::Base.remove_connection
+    ActiveRecord::Base.establish_connection(:test)
 
     Redis.current = Redis.new(host: redis_container.host, port: redis_container.port)
+
     ActiveRecord::Migration.verbose = false
-    ActiveRecord::Tasks::DatabaseTasks.migrate
+    ActiveRecord::Migrator.run(:up, ActiveRecord::Migrator.migrations_paths)
   end
 
   config.after(:suite) do

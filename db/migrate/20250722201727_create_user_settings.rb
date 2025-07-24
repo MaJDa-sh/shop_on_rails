@@ -5,9 +5,7 @@ class CreateUserSettings < ActiveRecord::Migration[8.0]
     create_table :user_settings do |t|
       t.boolean :two_factor, null: false, default: false
       t.boolean :night_mode, null: false, default: false
-
       t.references :user, null: false, foreign_key: true, index: { unique: true }
-
       t.timestamps
     end
   end
