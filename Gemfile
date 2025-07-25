@@ -13,13 +13,13 @@ gem 'twilio-ruby'
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 gem 'bcrypt', '~> 3.1.7'
 
-gem 'tzinfo-data', platforms: %i[windows jruby]
-
 gem 'bootsnap', require: false
 gem 'prometheus-client'
+gem 'rails-observers'
 gem 'solid_cable'
 gem 'solid_cache'
 gem 'solid_queue'
+gem 'tzinfo-data', platforms: %i[windows jruby]
 
 gem 'kamal', require: false
 

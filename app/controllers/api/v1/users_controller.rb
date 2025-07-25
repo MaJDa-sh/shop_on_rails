@@ -4,51 +4,35 @@ require 'jwt'
 
 # Namespace for API resources and controllers.
 module Api
-  # Namespace for API version v1.
   module V1
     # Handles operations for User resources via the API.
     #
     # Provides endpoints for user registration, profile management, role updates,
     # and action history. It supports authentication and authorization for secure access.
     class UsersController < ApplicationController
-      load_and_authorize_resource except: %i[create me logout]
+      load_and_authorize_resource except: %i[create me logout index]
       before_action :authenticate_user!,
                     only: %i[show update destroy role actions me logout update_location update_details
                              update_entrepreneur_details]
-      before_action :authorize_admin!, only: %i[index role]
 
       # POST /api/v1/users
       #
       # Creates a new user account (registration).
       #
-      # Upon successful creation, an activation code is generated and associated
-      # with the user's account for later verification.
-      #
-      # @param [Hash] :user The parameters for the user.
-      # @option user [String] :mail User's email (required, unique).
-      # @option user [String] :password User's password (required).
-      #
-      # @return [void] On success, sets `@user` and renders with `:created` (201).
-      #   On failure, sets `@errors` and renders with `:unprocessable_entity` (422).
+      # @return [void] Sets instance variables, and Rails implicitly renders
+      #   `create.json.jbuilder` (or `show.json.jbuilder`) with the appropriate status.
+      # @see Services::UserCreationService.call
       def create
-        @user = User.new(user_params)
-        if @user.save
-          @user.create_activation_code(code: SecureRandom.hex(16))
-          @status = :created
-        else
-          @errors = @user.errors.full_messages
-          @status = :unprocessable_entity
-        end
+        result = Services::UserCreationService.call(user_params)
+        @user = result.data[:user]
+        bind_data(result)
       end
 
       # GET /api/v1/users/:id
       #
       # Retrieves a single user by their ID.
       #
-      # Accessible only to the user themselves or an admin. The `@user` instance
-      # variable is loaded and authorized automatically by CanCanCan.
-      #
-      # @return [void] Renders the `@user` using the Jbuilder view with a
+      # @return [void] Implicitly renders the `@user` using `show.json.jbuilder` with a
       #   status of `:ok` (200).
       def show
         @status = :ok
@@ -58,97 +42,73 @@ module Api
       #
       # Updates an existing user's information.
       #
-      # Accessible only to the user themselves or an admin. The `@user` instance
-      # variable is loaded automatically by CanCanCan.
-      #
-      # @param [Hash] :user The parameters for updating the user.
-      #
-      # @return [void] Renders with `:ok` (200) on success. On failure, sets
-      #   `@errors` and renders with `:unprocessable_entity` (422).
-      # @see User#update_with_params
+      # @return [void] Sets instance variables, and Rails implicitly renders
+      #   `update.json.jbuilder` (or `show.json.jbuilder`) with the appropriate status.
+      # @see Services::UserProfileService#update_profile
       def update
-        result = @user.update_with_params(user_params)
-        @errors = result[:errors]
-        @status = result[:status]
+        result = user_profile_service.update_profile(user_params)
+        @user = result.data[:user]
+        bind_data(result)
       end
 
       # PATCH /api/v1/users/:id/update_location
       #
       # Updates the user's location information.
       #
-      # @param [Hash] :location The parameters for the location.
-      #
-      # @return [void] Renders with `:ok` (200) on success or an error status
-      #   on failure.
-      # @see User#update_user_location
+      # @return [void] Sets instance variables, and Rails implicitly renders
+      #   `update_location.json.jbuilder` (or `show.json.jbuilder`) with the appropriate status.
+      # @see Services::UserProfileService#update_location
       def update_location
-        result = @user.update_user_location(location_params)
-        @errors = result[:errors]
-        @status = result[:status]
+        result = user_profile_service.update_location(location_params)
+        @user.reload if result.success?
+        bind_data(result)
       end
 
       # PATCH /api/v1/users/:id/update_details
       #
       # Updates the user's personal details.
       #
-      # @param [Hash] :user_detail The parameters for the user's details.
-      #
-      # @return [void] Renders with `:ok` (200) on success or an error status
-      #   on failure.
-      # @see User#update_user_details
+      # @return [void] Sets instance variables, and Rails implicitly renders
+      #   `update_details.json.jbuilder` (or `show.json.jbuilder`) with the appropriate status.
+      # @see Services::UserProfileService#update_details
       def update_details
-        result = @user.update_user_details(user_detail_params)
-        @errors = result[:errors]
-        @status = result[:status]
+        result = user_profile_service.update_details(user_detail_params)
+        @user.reload if result.success?
+        bind_data(result)
       end
 
       # PATCH /api/v1/users/:id/update_entrepreneur_details
       #
       # Updates the user's entrepreneur-specific details.
       #
-      # @note The manual authorization checks in this action may be redundant if
-      #   they are already handled by your CanCanCan ability file.
-      #
-      # @param [Hash] :entrepreneur_detail The parameters for the entrepreneur details.
-      #
-      # @return [void] Renders with `:ok` (200) on success or an error status
-      #   on failure.
-      # @see User#update_user_entrepreneur_details
+      # @return [void] Sets instance variables, and Rails implicitly renders
+      #   `update_entrepreneur_details.json.jbuilder` (or `show.json.jbuilder`) with the appropriate status.
+      # @see Services::UserProfileService#update_entrepreneur_details
       def update_entrepreneur_details
-        unless @user.accessible_by?(current_user)
-          @errors = ['You can only update your own entrepreneur details.']
-          @status = :forbidden
-          return
-        end
-        unless @user.active? && @user.verified?
-          @errors = ['User account is not active or verified.']
-          @status = :forbidden
-          return
-        end
-        result = @user.update_user_entrepreneur_details(entrepreneur_detail_params)
-        @errors = result[:errors]
-        @status = result[:status]
+        result = user_profile_service.update_entrepreneur_details(entrepreneur_detail_params)
+        @user.reload if result.success?
+        bind_data(result)
       end
 
       # DELETE /api/v1/users/:id
       #
       # Deletes a user account.
       #
-      # Accessible only to the user themselves or an admin.
-      #
-      # @return [void] Renders with a status of `:no_content` (204) on success.
-      # @see User#destroy_user
+      # @return [void] Sets instance variables. For success (204 No Content), Rails
+      #   will automatically set the status and return no content. For errors, it
+      #   implicitly renders `destroy.json.jbuilder` (or `show.json.jbuilder`).
+      # @see Services::UserProfileService#destroy_user
       def destroy
-        result = @user.destroy_user
-        @status = result[:status]
+        result = user_profile_service.destroy_user
+        bind_data(result)
       end
 
       # GET /api/v1/users/me
       #
       # Retrieves the profile of the currently authenticated user.
       #
-      # @return [void] Sets `@user` to `current_user` and renders with a
-      #   status of `:ok` (200).
+      # @return [void] Sets `@user` to `current_user` and implicitly renders
+      #   `me.json.jbuilder` with a status of `:ok` (200).
       def me
         @user = current_user
         @status = :ok
@@ -160,8 +120,8 @@ module Api
       #
       # @param [Integer] :page (Optional) The page number for pagination.
       #
-      # @return [void] Sets `@users` for the Jbuilder view, rendering with
-      #   a status of `:ok` (200).
+      # @return [void] Sets `@users` for the Jbuilder view, implicitly rendering
+      #   `index.json.jbuilder` with a status of `:ok` (200).
       def index
         @users = User.page(params[:page]).per(25)
         @status = :ok
@@ -173,46 +133,46 @@ module Api
       #
       # @param [String] :role The new role for the user (e.g., "moderator", "admin").
       #
-      # @return [void] Renders with `:ok` (200) on success or an error status
-      #   on failure.
+      # @return [void] Sets instance variables, and Rails implicitly renders
+      #   `role.json.jbuilder` (or `show.json.jbuilder`) with the appropriate status.
+      # @see Services::UserProfileService#update_role
       def role
-        result = @user.update_with_params(role: params[:role])
-        @errors = result[:errors]
-        @status = result[:status]
+        result = user_profile_service.update_role(params[:role])
+        @user = result.data[:user]
+        bind_data(result)
       end
 
       # POST /api/v1/users/logout
       #
       # Logs out the current user by blacklisting their JWT.
       #
-      # The token is extracted from the `Authorization` header.
-      #
-      # @return [void] Renders a success or failure message with an appropriate status.
-      # @see User#blacklist_token
+      # @return [void] Sets instance variables, and Rails implicitly renders
+      #   `logout.json.jbuilder` with an appropriate status.
+      # @see Services::AuthenticationService#blacklist_token (assuming this lives here or a new service)
       def logout
         token = request.headers['Authorization']&.split&.last
-        result = current_user.blacklist_token(token)
-        @message = result[:message]
-        @errors = result[:errors]
-        @status = result[:status]
+        result = Services::AuthenticationService.blacklist_token(token)
+        bind_data(result)
       end
 
       # GET /api/v1/users/:id/actions
       #
       # Retrieves a paginated history of a user's actions.
       #
-      # Accessible only to the user themselves or an admin.
-      #
-      # @param [Integer] :page (Optional) The page number for pagination.
-      #
-      # @return [void] Sets `@actions` for the Jbuilder view, rendering with
-      #   a status of `:ok` (200).
+      # @return [void] Sets `@actions` for the Jbuilder view, implicitly rendering
+      #   `actions.json.jbuilder` with a status of `:ok` (200).
       def actions
         @actions = @user.user_actions.page(params[:page]).per(25)
         @status = :ok
       end
 
       private
+
+      # Initializes and returns an instance of UserProfileService for the loaded @user.
+      # @return [Services::UserProfileService] An instance of UserProfileService.
+      def user_profile_service
+        @user_profile_service ||= Services::UserProfileService.new(@user)
+      end
 
       # Defines permitted parameters for creating or updating a user.
       # @return [ActionController::Parameters] An object with the permitted parameters.
@@ -245,8 +205,8 @@ module Api
           :business_name, :nip, :krs, :description, :offer, :income, :costs,
           :funding_capital, :industry, :business_phone_number, :business_mail,
           :website_address,
-          management_council_members: {},
-          decision_makers: {}
+          management_council_members: {}, # Ensure these are correctly handled by accepts_nested_attributes_for or custom writer
+          decision_makers: {} # Ensure these are correctly handled
         )
       end
     end

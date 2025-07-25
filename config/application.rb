@@ -1,6 +1,8 @@
 require_relative 'boot'
 
 require 'rails/all'
+require 'active_record/railtie'
+require 'active_model/railtie'
 
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
@@ -8,6 +10,8 @@ Bundler.require(*Rails.groups)
 
 module ShopOnRails
   class Application < Rails::Application
+    config.active_record.observers = :order_observer, :user_observer, :product_observer, :cart_observer
+
     config.autoload_paths += %W[#{config.root}/app/models/services]
     config.eager_load_paths += %W[#{config.root}/app/models/services]
 

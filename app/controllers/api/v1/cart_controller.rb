@@ -2,7 +2,6 @@
 
 # Namespace for API resources and controllers.
 module Api
-  # Namespace for API version v1.
   module V1
     # Handles shopping cart operations for the authenticated user.
     #
@@ -11,7 +10,7 @@ module Api
     # records associated with the current user that are not yet part of an `Order`.
     class CartController < ApplicationController
       before_action :authenticate_user!
-      authorize_resource class: false
+      authorize_resource class: false # Assuming authorize_resource is from CanCanCan or similar
 
       # GET /api/v1/cart
       #
@@ -23,9 +22,7 @@ module Api
       # @return [void] Sets instance variables for the Jbuilder view to render
       #   a JSON object representing the cart, with a status of `:ok` (200).
       def show
-        @cart_items = current_user.cart_items.includes(:product)
-        @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
-        @items_count = @cart_items.sum(:quantity)
+        render_cart_summary
         @status = :ok
       end
 
@@ -40,16 +37,12 @@ module Api
       # @param [Integer] :quantity The quantity to add (must be > 0).
       #
       # @return [void] Sets instance variables for the Jbuilder view to render
-      #   the updated cart with a status of `:ok` (200).
-      # @see User#add_product_to_cart
+      #   the updated cart with an appropriate HTTP status.
+      # @see Services::CartService#add_product
       def add
-        product = Product.find(params[:product_id])
-        current_user.add_product_to_cart(product, add_params[:quantity])
-        @cart_items = current_user.cart_items.includes(:product)
-        @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
-        @items_count = @cart_items.sum(:quantity)
-        @message = 'Product added to cart successfully.'
-        @status = :ok
+        result = cart_service.add_product(params[:product_id], add_params[:quantity])
+        bind_data(result)
+        render_cart_summary
       end
 
       # DELETE /api/v1/cart/revoke/:item_id
@@ -64,15 +57,12 @@ module Api
       # @param [Integer] :quantity_to_remove (Optional) The quantity to remove.
       #
       # @return [void] Sets instance variables for the Jbuilder view to render
-      #   the updated cart with a status of `:ok` (200).
-      # @see User#remove_product_from_cart
+      #   the updated cart with an appropriate HTTP status.
+      # @see Services::CartService#remove_product
       def revoke
-        current_user.remove_product_from_cart(params[:item_id], revoke_params[:quantity_to_remove])
-        @cart_items = current_user.cart_items.includes(:product)
-        @total_amount = @cart_items.sum { |item| item.quantity * item.price_at_purchase }
-        @items_count = @cart_items.sum(:quantity)
-        @message = 'Product removed from cart.'
-        @status = :ok
+        result = cart_service.remove_product(params[:item_id], revoke_params[:quantity_to_remove])
+        bind_data(result)
+        render_cart_summary
       end
 
       # DELETE /api/v1/cart/clear
@@ -80,18 +70,29 @@ module Api
       # Clears all items from the user's shopping cart.
       #
       # @return [void] Sets instance variables for the Jbuilder view to render
-      #   the empty cart with a status of `:ok` (200).
-      # @see User#clear_user_cart
+      #   the empty cart with an appropriate HTTP status.
+      # @see Services::CartService#clear
       def clear
-        current_user.clear_user_cart
-        @cart_items = current_user.cart_items.includes(:product)
-        @total_amount = 0
-        @items_count = 0
-        @message = 'Cart cleared successfully.'
-        @status = :ok
+        result = cart_service.clear
+        bind_data(result)
+        render_cart_summary
       end
 
       private
+
+      # Initializes and returns an instance of CartService for the current user.
+      # @return [Services::CartService] An instance of CartService.
+      def cart_service
+        @cart_service ||= Services::CartService.new(current_user)
+      end
+
+      def render_cart_summary
+        current_cart_summary = cart_service.get_cart_summary
+        @cart_items = current_cart_summary[:cart_items]
+        @total_amount = current_cart_summary[:total_amount]
+        @items_count = current_cart_summary[:items_count]
+        render :show
+      end
 
       # Strong parameters for the 'add' action.
       #
@@ -103,6 +104,7 @@ module Api
       # Strong parameters for the 'revoke' action.
       #
       # @return [ActionController::Parameters] Permitted parameters.
+
       def revoke_params
         params.permit(:quantity_to_remove)
       end

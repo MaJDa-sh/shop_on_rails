@@ -10,7 +10,7 @@ module Api
     # from Stripe, such as charge successes, failures, or refunds. It is responsible
     # for verifying the authenticity of these webhooks before processing them.
     class StripePaymentsWebhookController < ApplicationController
-      skip_before_action :verify_authenticity_token
+      skip_before_action :verify_authenticity_token # Webhooks don't use CSRF tokens
 
       # POST /api/v1/stripe_payments_webhook/handle
       #
@@ -20,34 +20,28 @@ module Api
       # Stripe and was not tampered with. If the signature is valid, the event
       # payload is passed to the Payment model for business logic processing.
       #
-      # @return [void] Renders a status response:
-      #   - `200 OK` on successful handling.
-      #   - `400 Bad Request` if the payload is invalid or the signature is incorrect.
-      # @see Payment.handle_stripe_event
+      # @return [void] Sets instance variables (`@message`, `@errors`, `@status`)
+      #   for the Jbuilder view, implicitly rendering `handle.json.jbuilder` with the appropriate status.
+      # @see Services::StripeWebhookVerificationService.verify_and_construct_event
+      # @see Services::StripeWebhookService.handle
       def handle
         payload = request.body.read
         sig_header = request.env['HTTP_STRIPE_SIGNATURE']
         endpoint_secret = Rails.application.credentials.stripe[:webhook_secret]
-        event = nil
 
-        begin
-          event = Stripe::Webhook.construct_event(
-            payload, sig_header, endpoint_secret
-          )
-        rescue JSON::ParserError
-          @errors = ['Invalid payload']
-          @status = :bad_request
-          return
-        rescue Stripe::SignatureVerificationError
-          @errors = ['Signature verification failed']
-          @status = :bad_request
-          return
+        verification_result = Services::StripeWebhookVerificationService.verify_and_construct_event(
+          payload: payload,
+          sig_header: sig_header,
+          endpoint_secret: endpoint_secret
+        )
+
+        if verification_result.success?
+          event = verification_result.data[:event]
+          processing_result = Services::StripeWebhookService.handle(event)
+          bind_data(processing_result)
+        else
+          bind_data(verification_result)
         end
-
-        Payment.handle_stripe_event(event)
-
-        @message = 'Webhook handled successfully'
-        @status = :ok
       end
     end
   end

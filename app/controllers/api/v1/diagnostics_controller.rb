@@ -2,7 +2,6 @@
 
 # Namespace for API resources and controllers.
 module Api
-  # Namespace for API version v1.
   module V1
     # Handles diagnostic endpoints for monitoring application status.
     #
@@ -13,36 +12,24 @@ module Api
       #
       # Checks if the application is ready to accept traffic.
       #
-      # A readiness probe is used to determine if the application is fully initialized
-      # and capable of processing new requests. If this check fails, the instance
-      # should not receive new traffic until it becomes ready.
-      #
       # @return [void] Sets instance variables for the Jbuilder view to render
       #   a status response, typically with HTTP status 200 (OK) or 503 (Service Unavailable).
       # @see Services::DiagnosticsService.readiness_probe
       def readiness
         result = Services::DiagnosticsService.readiness_probe
-        @status = result[:status]
-        @message = result[:message]
-        @errors = result[:errors]
+        bind_data(result)
       end
 
       # GET /api/v1/diagnostics/health
       #
       # Checks the ongoing health of the application and its dependencies.
       #
-      # A health (or liveness) probe verifies that the application is running and that
-      # critical dependencies (e.g., database, Redis) are responsive. If this check
-      # fails, the application instance is considered unhealthy and should be restarted.
-      #
       # @return [void] Sets instance variables for the Jbuilder view to render a
       #   detailed health status, typically with HTTP status 200 (OK) or 503 (Service Unavailable).
       # @see Services::DiagnosticsService.health_probe
       def health
         result = Services::DiagnosticsService.health_probe
-        @status = result[:status]
-        @message = result[:message]
-        @errors = result[:errors]
+        bind_data(result)
         @details = result[:details]
       end
 
@@ -60,6 +47,17 @@ module Api
         exporter = Prometheus::Client::Formats::Text.new
         render plain: exporter.export(Services::PrometheusInstrumentor.registry),
                content_type: 'text/plain; version=0.0.4'
+      end
+
+      private
+
+      # Binds common data from a service result object to controller instance variables.
+      # Assumes result object has :status, :message, and :errors keys (or methods).
+      # @param result [Hash, Services::Result] The result object from a service call.
+      def bind_data(result)
+        @status = result[:status]
+        @message = result[:message]
+        @errors = result[:errors]
       end
     end
   end

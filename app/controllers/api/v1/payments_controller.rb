@@ -11,7 +11,7 @@ module Api
     # Stripe payment gateway. Access is restricted based on user ownership and roles.
     class PaymentsController < ApplicationController
       before_action :authenticate_user!
-      load_and_authorize_resource
+      load_and_authorize_resource except: [:create]
 
       # GET /api/v1/payments
       #
@@ -20,8 +20,8 @@ module Api
       # This endpoint is restricted to admin users and returns a comprehensive list
       # of all payment transactions in the system, ordered by creation date.
       #
-      # @return [void] Sets `@payments` for the Jbuilder view, rendering with
-      #   a status of `:ok` (200).
+      # @return [void] Sets `@payments` for the Jbuilder view, implicitly rendering
+      #   `index.json.jbuilder` with a status of `:ok` (200).
       def index
         @payments = Payment.includes(:order).order(created_at: :desc)
         @status = :ok
@@ -35,7 +35,7 @@ module Api
       # by CanCanCan's `load_and_authorize_resource`. Accessible only to the
       # user who owns the associated order or to an admin.
       #
-      # @return [void] Renders the `@payment` using the Jbuilder view with a
+      # @return [void] Implicitly renders the `@payment` using `show.json.jbuilder` with a
       #   status of `:ok` (200).
       def show
         @status = :ok
@@ -45,51 +45,22 @@ module Api
       #
       # Creates a new payment for a specific order using a Stripe token.
       #
-      # This action validates that the order belongs to the current user and has not
-      # been paid for. It then attempts to create a Stripe charge via a callback
-      # in the Payment model.
-      #
       # @param [Hash] :payment The parameters for the payment.
       # @option payment [Integer] :order_id The ID of the order to be paid.
       # @option payment [String] :stripe_token The single-use token from Stripe.
       #
-      # @return [void] On success, sets `@payment` and renders with `:created` (201).
-      #   On failure, sets `@errors` and renders with `:not_found` (404) or
-      #   `:unprocessable_entity` (422).
+      # @return [void] Sets instance variables, and Rails implicitly renders
+      #   `create.json.jbuilder` (or `show.json.jbuilder` if absent) with the appropriate status.
+      # @see Services::PaymentCreationService.call
       def create
-        order = current_user.orders.find_by(id: payment_params[:order_id])
-
-        if order.nil?
-          @errors = ['Order not found or does not belong to the user.']
-          @status = :not_found
-          return
-        end
-
-        if order.paid?
-          @errors = ['This order has already been paid for.']
-          @status = :unprocessable_entity
-          return
-        end
-
-        @payment = Payment.new(
-          order: order,
-          amount: order.total_amount,
-          stripe_token: payment_params[:stripe_token],
-          payment_method: 'stripe'
+        result = Services::PaymentCreationService.call(
+          user: current_user,
+          order_id: payment_params[:order_id],
+          stripe_token: payment_params[:stripe_token]
         )
 
-        if @payment.save
-          if @payment.completed?
-            order.mark_as_paid!
-            @status = :created
-          else
-            @errors = [@payment.error_message]
-            @status = :unprocessable_entity
-          end
-        else
-          @errors = @payment.errors.full_messages
-          @status = :unprocessable_entity
-        end
+        @payment = result.data[:payment]
+        bind_data(result)
       end
 
       private
