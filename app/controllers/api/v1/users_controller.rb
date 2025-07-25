@@ -205,8 +205,8 @@ module Api
           :business_name, :nip, :krs, :description, :offer, :income, :costs,
           :funding_capital, :industry, :business_phone_number, :business_mail,
           :website_address,
-          management_council_members: {}, # Ensure these are correctly handled by accepts_nested_attributes_for or custom writer
-          decision_makers: {} # Ensure these are correctly handled
+          management_council_members: {},
+          decision_makers: {}
         )
       end
     end
